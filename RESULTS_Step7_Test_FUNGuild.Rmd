@@ -1,0 +1,622 @@
+---
+title: "Untitled"
+author: "Laura_Hakkinen"
+date: "2024-01-10"
+output: html_document
+---
+
+# RESULTS STEPS 7:FUNGuild testing
+
+Note! While doing tests, always check the homogeneity of variance result and decide based on that which later test result to use (Anova and Tukey or Kruskal and Wilcoxon)
+
+```{r}
+library('phyloseq')
+library("cowplot")
+library("dplyr")
+library("ggplot2")
+library("vegan")
+library("microbiome")
+library("tibble")
+library(stringr)
+library(reshape2)
+library(tidyr)
+
+setwd('C:\\Users\\lehakkin\\PhD\\Fungal_ITS_soil_vertical_profile')
+
+load(file = 'ps_FG_with_NAs')#ps_FG
+ps_FG
+
+```
+
+
+# 1. Test Plant Pathogen
+
+Note:
+
+- Ectomycorrhizal           =   guilds containing "Ectomycorrhizal" from trophic mode Symbiotroph only, NOTE! thiis is same as pure Ectomycorrhizal!!
+- Arbuscular Mycorrhizal    =   all guilds containing "Arbuscular Mycorrhizal" from trophic mode Symbiotroph (nor AMF in other TMs)
+- Endophyte                 =   Pure endophytes from trophic mode Symbiotroph only
+- Plant Pathogen            =   Pure Plant Pathogens from trophic mode Pathotroph only
+
+
+```{r}
+
+# remove species
+
+z <- as.data.frame(tax_table(ps_FG))
+
+tax <- z[, 1:9]
+
+# rename FUNGuild to species
+colnames(tax)[3] <- "species"
+tax <- tax %>% as.matrix()
+
+# reassign to phyloseq
+x <- ps_FG
+tax_table(x) <- tax_table(tax)
+
+x <- aggregate_rare(x, level = "species", detection = 0, prevalence = 0)
+x               
+# 12 taxa and 140 samples
+
+
+# remove "Unknown"
+#allTaxa = taxa_names(x)
+#badTaxa = c("Unknown")
+#myTaxa <- allTaxa[!(allTaxa %in% badTaxa)]
+#x <- prune_taxa(myTaxa, x)
+#x
+# 11 taxa and 140 samples
+
+x_RA <- transform(x, 'compositional')
+
+```
+
+
+```{r}
+
+#create data table
+FG_df <-  psmelt(x_RA)
+```
+
+
+
+```{r}
+
+unique(FG_df$OTU)
+
+
+taxa <- "Plant Pathogen"
+
+# Construct a data.frame with the selected
+# taxonomic group and grouping
+# relative
+df <- filter(FG_df, OTU == taxa)
+
+library(car)
+# Using leveneTest()
+result = leveneTest(Abundance ~ sample_type, df)
+# print the result
+print(result)
+
+```
+
+not homogenous
+
+
+```{r}
+# perform the Kruskal test
+kruskal.test(Abundance ~ sample_type, data = df)
+
+pairwise.wilcox.test(df$Abundance, df$sample_type,
+                     p.adjust.method = "BH")
+
+x <- df %>%
+  group_by(sample_type) %>%
+  summarise(mean = mean(Abundance, na.rm = TRUE), se = (sd(Abundance, na.rm = TRUE)/sqrt(length((Abundance)))))
+x
+
+```
+
+
+
+# 2. Test Endophyte
+
+```{r}
+unique(FG_df$OTU)
+
+
+taxa <- "Endophyte"
+
+# Construct a data.frame with the selected
+# taxonomic group and grouping
+# relative
+df <- filter(FG_df, OTU == taxa)
+
+# Using leveneTest()
+result = leveneTest(Abundance ~ sample_type, df)
+# print the result
+print(result)
+
+
+```
+
+
+```{r}
+# perform the Kruskal test
+kruskal.test(Abundance ~ sample_type, data = df)
+
+pairwise.wilcox.test(df$Abundance, df$sample_type,
+                     p.adjust.method = "BH")
+
+x <- df %>%
+  group_by(sample_type) %>%
+  summarise(mean = mean(Abundance, na.rm = TRUE), se = (sd(Abundance, na.rm = TRUE)/sqrt(length((Abundance)))))
+x
+```
+
+
+# 3. Test Trophic modes
+
+```{r}
+# remove species
+
+z <- as.data.frame(tax_table(ps_FG))
+
+tax <- z[, 1:9]
+
+# rename trophicmode to species
+colnames(tax)[1] <- "species"
+tax <- tax %>% as.matrix()
+
+# reassign to phyloseq
+x <- ps_FG
+tax_table(x) <- tax_table(tax)
+
+x <- aggregate_rare(x, level = "species", detection = 0, prevalence = 0)
+x               
+# 8 taxa and 140 samples
+
+
+# remove "Unknown"
+#allTaxa = taxa_names(x)
+#badTaxa = c("Unknown")
+#myTaxa <- allTaxa[!(allTaxa %in% badTaxa)]
+#x <- prune_taxa(myTaxa, x)
+#x
+# 7 taxa and 140 samples
+
+x_RA <- transform(x, 'compositional')
+
+```
+
+```{r}
+#create data table
+FG_df <-  psmelt(x_RA)
+unique(FG_df$species)
+```
+
+
+```{r}
+
+FG_df$species <- as.factor(FG_df$species)
+
+for (i in levels(FG_df$species)) {
+  df <- filter(FG_df, species == i)
+
+  print(i)
+  result = leveneTest(Abundance ~ sample_type, df)
+  print(result)
+  k <- kruskal.test(Abundance ~ sample_type, data = df)
+  print(k)
+  w <- pairwise.wilcox.test(df$Abundance, df$sample_type,
+                     p.adjust.method = "BH")
+  print(w)
+  res.aov <- aov(Abundance ~ sample_type, data = df)
+  aov <- summary(res.aov)
+  print(aov)
+  tukey <- TukeyHSD(res.aov)
+  print(tukey)
+  }
+
+x <- FG_df %>% group_by(species, sample_type) %>%
+  summarise(mean = mean(Abundance, na.rm = TRUE), se = (sd(Abundance, na.rm = TRUE)/sqrt(length((Abundance)))))
+x
+```
+
+
+# 4. Trophic modes in forest deepest layer
+
+```{r}
+ps_x <- subset_samples(ps_FG, sample_type=="forest" & depth=="40...")
+ps_x
+
+ps_FG_Tm <- aggregate_rare(ps_x, level = "trophicMode", detection = 0, prevalence = 0)
+ps_FG_Tm
+# 8 taxa and 15 samples
+
+# remove "Unknown"
+#allTaxa = taxa_names(ps_FG_Tm)
+#badTaxa = c("Unknown")
+#myTaxa <- allTaxa[!(allTaxa %in% badTaxa)]
+#ps_FG_Tm <- prune_taxa(myTaxa, ps_FG_Tm)
+#ps_FG_Tm
+# 7 taxa and 15 samples
+
+ps_FG_Tm_RA <- microbiome::transform(ps_FG_Tm, "compositional")
+
+FG_df <- psmelt(ps_FG_Tm_RA)
+
+x <- FG_df %>%
+  group_by(OTU) %>%
+  summarise(mean = mean(Abundance, na.rm = TRUE), se = (sd(Abundance, na.rm = TRUE)/sqrt(length((Abundance)))))
+
+x
+```
+
+
+
+# 5. Test symbiotrophic related trophic modes in soillayers
+
+```{r}
+# remove species
+
+z <- as.data.frame(tax_table(ps_FG))
+
+tax <- z[, 1:9]
+
+tax <- tax %>%  
+   mutate(FG = case_when(trophicMode == "Symbiotroph" | trophicMode == "Saprotroph-Symbiotroph" ~ "Symbiotroph-or-Saprotroph-Symbiotroph", trophicMode != "Symbiotroph" | trophicMode != "Saprotroph-Symbiotroph" ~ "Other"))
+
+# rename FG to species
+colnames(tax)[10] <- "species"
+
+tax <- tax %>% as.matrix()
+
+# reassign to phyloseq
+x <- ps_FG
+tax_table(x) <- tax_table(tax)
+
+x <- aggregate_rare(x, level = "species", detection = 0, prevalence = 0)
+x               
+# 3 taxa and 140 samples
+
+
+# remove "Unknown"
+#allTaxa = taxa_names(x)
+#badTaxa = c("Unknown")
+#myTaxa <- allTaxa[!(allTaxa %in% badTaxa)]
+#x <- prune_taxa(myTaxa, x)
+#x
+# 2 taxa and 140 samples
+
+x_RA <- transform(x, 'compositional')
+
+```
+
+
+```{r}
+#create data table
+FG_df <-  psmelt(x_RA)
+unique(FG_df$species)
+```
+
+
+```{r}
+
+
+df <- filter(FG_df, species == "Symbiotroph-or-Saprotroph-Symbiotroph")
+df <- filter(df, sample_type!="forest")
+
+result = leveneTest(Abundance ~ depth, df)
+print(result)
+
+k <- kruskal.test(Abundance ~ depth, data = df)
+print(k)
+w <- pairwise.wilcox.test(df$Abundance, df$depth,
+                     p.adjust.method = "BH")
+print(w)
+
+
+
+x <- df %>% group_by(depth) %>%
+  summarise(mean = mean(Abundance, na.rm = TRUE), se = (sd(Abundance, na.rm = TRUE)/sqrt(length((Abundance)))))
+x
+```
+
+# 6. Test symbiotrph related in 30-40 bewteen meadow, organic and conventional managements
+
+```{r}
+df <- filter(FG_df, species == "Symbiotroph-or-Saprotroph-Symbiotroph")
+df <- filter(df, sample_type!="forest")
+df <- filter(df, depth=="30...40")
+
+result = leveneTest(Abundance ~ sample_type, df)
+print(result)
+
+res.aov <- aov(Abundance ~ sample_type, data = df)
+aov <- summary(res.aov)
+print(aov)
+tukey <- TukeyHSD(res.aov)
+print(tukey)
+
+k <- kruskal.test(Abundance ~ sample_type, data = df)
+print(k)
+w <- pairwise.wilcox.test(df$Abundance, df$sample_type,
+                     p.adjust.method = "BH")
+print(w)
+
+
+x <- df %>% group_by(sample_type) %>%
+  summarise(mean = mean(Abundance, na.rm = TRUE), se = (sd(Abundance, na.rm = TRUE)/sqrt(length((Abundance)))))
+x
+```
+
+
+# 7. Test symbiotrophs between soillayers
+
+```{r}
+# remove species
+
+z <- as.data.frame(tax_table(ps_FG))
+
+tax <- z[, 1:9]
+
+# rename trophic mode to species
+colnames(tax)[1] <- "species"
+
+tax <- tax %>% as.matrix()
+
+# reassign to phyloseq
+x <- ps_FG
+tax_table(x) <- tax_table(tax)
+
+x <- aggregate_rare(x, level = "species", detection = 0, prevalence = 0)
+x               
+# 8 taxa and 140 samples
+
+
+# remove "Unknown"
+#allTaxa = taxa_names(x)
+#badTaxa = c("Unknown")
+#myTaxa <- allTaxa[!(allTaxa %in% badTaxa)]
+#x <- prune_taxa(myTaxa, x)
+#x
+# 2 taxa and 140 samples
+
+x_RA <- transform(x, 'compositional')
+
+```
+
+
+```{r}
+#create data table
+FG_df <-  psmelt(x_RA)
+# remove forest
+FG_df <- subset(FG_df, sample_type!="forest" | sample_type!="meadow")
+
+unique(FG_df$species)
+```
+
+
+```{r}
+df <- filter(FG_df, species == "Symbiotroph")
+
+result = leveneTest(Abundance ~ depth, df)
+print(result)
+
+k <- kruskal.test(Abundance ~ depth, data = df)
+print(k)
+w <- pairwise.wilcox.test(df$Abundance, df$depth,
+                     p.adjust.method = "BH")
+print(w)
+
+
+
+x <- df %>% group_by(depth) %>%
+  summarise(mean = mean(Abundance, na.rm = TRUE), se = (sd(Abundance, na.rm = TRUE)/sqrt(length((Abundance)))))
+x
+```
+
+
+# 8. Test saprotrophs between soillayers
+
+```{r}
+# remove species
+
+z <- as.data.frame(tax_table(ps_FG))
+
+tax <- z[, 1:9]
+
+# rename trophic mode to species
+colnames(tax)[1] <- "species"
+
+tax <- tax %>% as.matrix()
+
+# reassign to phyloseq
+x <- ps_FG
+tax_table(x) <- tax_table(tax)
+
+x <- aggregate_rare(x, level = "species", detection = 0, prevalence = 0)
+x               
+# 8 taxa and 140 samples
+
+
+# remove "Unknown"
+#allTaxa = taxa_names(x)
+#badTaxa = c("Unknown")
+#myTaxa <- allTaxa[!(allTaxa %in% badTaxa)]
+#x <- prune_taxa(myTaxa, x)
+#x
+# 2 taxa and 140 samples
+
+x_RA <- transform(x, 'compositional')
+
+```
+
+
+```{r}
+#create data table
+FG_df <-  psmelt(x_RA)
+# remove forest
+FG_df <- subset(FG_df, sample_type!="forest" & sample_type!="meadow")
+
+unique(FG_df$species)
+```
+
+
+```{r}
+df <- filter(FG_df, species == "Saprotroph")
+
+result = leveneTest(Abundance ~ depth, df)
+print(result)
+
+k <- kruskal.test(Abundance ~ depth, data = df)
+print(k)
+w <- pairwise.wilcox.test(df$Abundance, df$depth,
+                     p.adjust.method = "BH")
+print(w)
+
+
+
+x <- df %>% group_by(depth) %>%
+  summarise(mean = mean(Abundance, na.rm = TRUE), se = (sd(Abundance, na.rm = TRUE)/sqrt(length((Abundance)))))
+x
+```
+
+
+
+# 9 Test Trophic modes in soillayers
+
+```{r}
+# remove species
+
+z <- as.data.frame(tax_table(ps_FG))
+
+tax <- z[, 1:9]
+
+
+# rename trophic mode to species
+colnames(tax)[1] <- "species"
+
+tax <- tax %>% as.matrix()
+
+# reassign to phyloseq
+x <- ps_FG
+tax_table(x) <- tax_table(tax)
+
+x <- aggregate_rare(x, level = "species", detection = 0, prevalence = 0)
+x               
+# 8 taxa and 140 samples
+
+
+# remove "Unknown"
+#allTaxa = taxa_names(x)
+#badTaxa = c("Unknown")
+#myTaxa <- allTaxa[!(allTaxa %in% badTaxa)]
+#x <- prune_taxa(myTaxa, x)
+#x
+# 2 taxa and 140 samples
+
+x_RA <- transform(x, 'compositional')
+
+```
+
+```{r}
+#create data table
+FG_df <-  psmelt(x_RA)
+
+unique(FG_df$species)
+```
+
+```{r}
+FG_df <- filter(FG_df, sample_type != "forest")
+FG_df <- droplevels(FG_df)
+
+# make factor
+FG_df$species <- as.factor(FG_df$species)
+FG_df$depth <- as.factor(FG_df$depth)
+
+#create data frame with 0 rows and 6 columns
+df_test <- data.frame(matrix(ncol = 6))
+
+#provide column names
+colnames(df_test) <- c('sample_type', 'species', 'depth', 'LevenesP', 'ANOVAsOrKrusalsP', 'mean_se_cld')
+
+for (i in levels(FG_df$depth)) {
+  for (j in levels(FG_df$species)) {
+    df <- filter(FG_df, depth == i & species == j)
+    levene <- leveneTest(Abundance ~ sample_type, df)
+    if (levene[1,3]>0.05){
+      res.aov <- aov(Abundance ~ sample_type, data = df)
+    res.aov2 <- summary(res.aov)
+    res.aov2 <- res.aov2[[1]]
+    df.res.aov <- data.frame(matrix(ncol = 3, nrow =3))
+    colnames(df.res.aov) <- c('sample_type', 'LevenesP', 'ANOVAsOrKrusalsP')
+    df.res.aov$sample_type <- levels(FG_df$sample_type)
+    df.res.aov$LevenesP <- levene[1,3]
+    df.res.aov$ANOVAsOrKrusalsP <- res.aov2[1,5]
+    df.res.aov$LevenesP <- sprintf("%.3f", round(df.res.aov$LevenesP, digits = 3))
+    df.res.aov$ANOVAsOrKrusalsP <- sprintf("%.3f", round(df.res.aov$ANOVAsOrKrusalsP, digits = 3))
+    
+    tukey <- glht(res.aov, linfct=mcp(sample_type="Tukey"))
+    cld <- cld(tukey)
+    cld <- cld[["mcletters"]][["Letters"]]
+    cld <- as.data.frame(cld)
+    cld$sample_type <- row.names(cld)
+    row.names(cld) <- NULL
+    } else {
+      res.aov2 <- kruskal.test(Abundance ~ sample_type, data = df)
+    df.res.aov <- data.frame(matrix(ncol = 3, nrow =3))
+    colnames(df.res.aov) <- c('sample_type', 'LevenesP', 'ANOVAsOrKrusalsP')
+    df.res.aov$sample_type <- levels(FG_df$sample_type)
+    df.res.aov$LevenesP <- levene[1,3]
+    df.res.aov$ANOVAsOrKrusalsP <- res.aov2[["p.value"]]
+    df.res.aov$LevenesP <- sprintf("%.3f", round(df.res.aov$LevenesP, digits = 3))
+    df.res.aov$ANOVAsOrKrusalsP <- sprintf("%.3f", round(df.res.aov$ANOVAsOrKrusalsP, digits = 3))
+    wilcox.res <- pairwise.wilcox.test(df$Abundance, df$sample_type,
+                     p.adjust.method = "BH")
+    wilcox.res <- wilcox.res[["p.value"]]
+    
+    cld = fullPTable(wilcox.res)
+    cld[is.na(cld)] <- 0
+    cld <- multcompLetters(cld)
+    cld <- cld[["Letters"]]
+    cld <- as.data.frame(cld)
+    cld$sample_type <- row.names(cld)
+    row.names(cld) <- NULL
+    }
+    
+    x <- df %>%
+      dplyr::group_by(sample_type) %>%
+      dplyr::summarise(mean = mean(Abundance, na.rm = TRUE), se = (sd(Abundance, na.rm = TRUE)/sqrt(length((Abundance)))))
+    
+    x$mean <- sprintf("%.3f", round(x$mean, digits = 3))
+    x$se <- sprintf("%.3f", round(x$se, digits = 3))
+    x <- cbind(species = 0, x)
+    x$species <- j
+    x$depth <- i
+    
+    output <- merge(x, df.res.aov, by='sample_type')
+    output <- merge(output, cld, by='sample_type')
+    
+    output$mean_se = paste(output$mean, output$se, sep="±")
+    output$mean_se_cld = paste(output$mean_se, output$cld, sep="")
+    output <- output[, -c(3,4,8,9)]
+    
+    df_test <- rbind(df_test, output)
+  }
+}
+
+```
+
+
+```{r}
+df_test <- na.omit(df_test)
+
+setwd('C:\\Users\\lehakkin\\PhD\\Fungal_ITS_soil_vertical_profile')
+
+#write.csv2(df_test, file = "test.csv")
+```
+
+

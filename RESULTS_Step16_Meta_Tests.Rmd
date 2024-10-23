@@ -1,0 +1,129 @@
+---
+title: "Untitled"
+author: "Laura_Hakkinen"
+date: "2024-10-04"
+output: html_document
+---
+
+
+```{r}
+library('phyloseq')
+library("cowplot")
+library("ggplot2")
+library("vegan")
+library("microbiome")
+
+setwd('C:\\Users\\lehakkin\\PhD\\Fungal_ITS_soil_vertical_profile')
+
+load("ps_FINAL")#ps
+ps
+
+meta <- meta(ps)
+```
+
+
+# Test soil properties between management types in all soil layers
+
+
+```{r}
+library("tibble")
+library(stringr)
+library(reshape2)
+library(tidyr)
+library("dplyr")
+library("multcomp")
+library(car)
+library("rcompanion")
+library("multcompView")
+
+meta$depth <- as.factor(meta$depth)
+soil.properties <- as.factor(c("C_g_per_kg", "N_gkg", "C_per_N", "DOC_mgkg", "TP_gkg", 
+                               "Porg_mgkg", "Pinorg_mgkg", "PH2O_mgkg", "pH_H2O", 
+                               "Feox_mmolkg", "Alox_mmolkg", "log_root"))
+
+# Create a data frame with 0 rows and 6 columns
+df_test <- data.frame(matrix(ncol = 6))
+colnames(df_test) <- c('sample_type', 'property', 'depth', 'LevenesP', 'ANOVAsOrKrusalsP', 'mean_se_cld')
+
+# Loop over depth and soil properties
+for (i in levels(meta$depth)) {
+  for (j in levels(soil.properties)) {
+    df <- filter(meta, depth == i & sample_type != "forest")
+    df <- df[, c("sample_type", j)]
+    df <- droplevels(df)
+    
+    # Perform Levene's test
+    levene <- leveneTest(df[[j]] ~ sample_type, df)
+    
+    if (levene[1,3] > 0.05) {
+      # Perform ANOVA
+      res.aov <- aov(df[[j]] ~ sample_type, data = df)
+      res.aov2 <- summary(res.aov)
+      res.aov2 <- res.aov2[[1]]
+      
+      # Create a result data frame for ANOVA
+      df.res.aov <- data.frame(sample_type = levels(df$sample_type),
+                               LevenesP = sprintf("%.3f", levene[1,3]),
+                               ANOVAsOrKrusalsP = sprintf("%.3f", res.aov2[1,5]))
+      
+      # Tukey's HSD and compact letter display
+      tukey <- glht(res.aov, linfct = mcp(sample_type = "Tukey"))
+      cld <- cld(tukey)
+      cld <- cld[["mcletters"]][["Letters"]]
+      cld <- as.data.frame(cld)
+      cld$sample_type <- rownames(cld)
+      rownames(cld) <- NULL
+      
+    } else {
+      # Perform Kruskal-Wallis test
+      res.aov2 <- kruskal.test(df[[j]] ~ sample_type, data = df)
+      df.res.aov <- data.frame(sample_type = levels(df$sample_type),
+                               LevenesP = sprintf("%.3f", levene[1, 3]),
+                               ANOVAsOrKrusalsP = sprintf("%.3f", res.aov2$p.value))
+      
+      # Wilcoxon test and compact letter display
+      wilcox.res <- pairwise.wilcox.test(df[[j]], df$sample_type, p.adjust.method = "BH")
+      wilcox.res <- wilcox.res[["p.value"]]
+      
+      cld <- fullPTable(wilcox.res)
+      cld[is.na(cld)] <- 0
+      cld <- multcompLetters(cld)
+      cld <- cld[["Letters"]]
+      cld <- as.data.frame(cld)
+      cld$sample_type <- rownames(cld)
+      rownames(cld) <- NULL
+    }
+    
+    # Calculate mean and SE grouped by sample_type
+    x <- df %>%
+      group_by(sample_type) %>%
+      summarise(mean = sprintf("%.3f", mean(.data[[j]], na.rm = TRUE)),
+                se = sprintf("%.3f", sd(.data[[j]], na.rm = TRUE) / sqrt(n())))
+    
+    x$property <- j
+    x$depth <- i
+    
+    # Merge results and append to df_test
+    output <- merge(x, df.res.aov, by = "sample_type")
+    output <- merge(output, cld, by = "sample_type")
+    output$mean_se_cld <- paste(output$mean, "±", output$se, output$cld, sep = "")
+    output <- output[, -c(2,3,8)]
+    
+    df_test <- rbind(df_test, output)
+  }
+}
+
+df_test
+```
+
+
+# save the table
+
+```{r}
+#setwd('C:\\Users\\lehakkin\\PhD\\Fungal_ITS_soil_vertical_profile')
+
+#write.csv2(df_test, file = "META_tests_results.csv")
+```
+
+
+

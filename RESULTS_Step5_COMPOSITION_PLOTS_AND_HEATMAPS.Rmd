@@ -1,0 +1,2189 @@
+---
+title: "Untitled"
+author: "Laura_Hakkinen"
+date: "2024-06-26"
+output: html_document
+---
+
+# RESULTS STEPS 5 and 6:HEATMAPS with genera and COMPOSITION PLOTS for phyla, class and FUNGuild
+
+# A) HEATMAP for meadow, organic and conventional
+
+## 1. load packages and data
+
+```{r}
+
+library('phyloseq')
+library("cowplot")
+library("dplyr")
+library("ggplot2")
+library("vegan")
+library("microbiome")
+library("tibble")
+
+
+setwd('C:\\Users\\lehakkin\\PhD\\Fungal_ITS_soil_vertical_profile')
+
+load('ps_FINAL')
+ps
+
+
+# Pick relative abundances (compositional) and sample metadata 
+ps_RA <- microbiome::transform(ps, "compositional")
+ps_RA_nf <- subset_samples(ps_RA, sample_type!="forest")
+
+# You have only submitted samples, not OTUs. Define prevalence of each taxa
+# (in how many samples did each taxa appear at least once)
+prev0 = apply(X = otu_table(ps_RA_nf),
+              MARGIN = ifelse(taxa_are_rows(ps_RA_nf), yes = 1, no = 2),
+              FUN = function(x){sum(x > 0)})
+
+# Execute prevalence filter, using `prune_taxa()` function
+ps_RA_nf = prune_taxa((prev0 > 0), ps_RA_nf)
+ps_RA_nf
+
+meta_nf <- meta(ps_RA_nf)
+```
+
+
+# 2. Overview of the heatmap analysis
+
+I will do heatmap for fungal genera using only meadow, organic and conventional soils (without forest).
+I will use RA values
+For the final heatmap figure the RA values will be standardizes (z-transformed)
+
+1) First pick the 20 most abundant genera in each soil type depth
+2) Do multiple testing between sample_type_depths that make sense (do not test between e.g. meadow deep and organic topsoil)
+3) Make a HEATMAP of the significant taxa only
+
+!! NOTE!! I will also include taxa that are not classified at genus level in the heatmap
+
+# 3. at genus level
+
+```{r}
+
+ps_genus <- aggregate_rare(ps, level = 'genus', detection = 0/100, prevalence = 0/140)
+ps_genus
+
+
+ps_genus_RA <- microbiome::transform(ps_genus, "compositional")
+
+ps_genus_RA_pruned <- subset_samples(ps_genus_RA, sample_type!="forest")
+ps_genus_RA_pruned
+```
+
+
+# 4. Pick 20 most abund taxa in each soil management layer
+
+```{r}
+# sample wise filtering according to most abund. genera
+
+# Initialize an empty list to store the taxa
+abund.taxa <- list()
+
+for (i in meta_nf$sample_type) {
+  for (j in meta_nf$depth) {
+    x <- sample_names(sample_data(ps_genus_RA_pruned)[sample_data(ps_genus_RA_pruned)$sample_type == i & sample_data(ps_genus_RA_pruned)$depth == j,])
+
+# Calculate taxa mean of the selected samples
+top20 <- head(sort(rowMeans(otu_table(ps_genus_RA_pruned)[,x]), decreasing = TRUE), 20)
+
+result_name <- paste("sample_type", i, "depth", j, sep = "_")
+
+abund.taxa[[result_name]] <- top20
+  }
+}
+
+```
+
+
+
+# 5. Combine picked taxa
+
+```{r}
+management_layer <- c(names(abund.taxa))
+
+all_top20 <- c()
+
+for (i in management_layer) {
+  top20 <- c(names(abund.taxa[[i]]))
+  all_top20 <- c(all_top20, top20)
+
+}
+
+all_top20_unique <- unique(all_top20)
+length(all_top20_unique)
+
+all_top20_unique_df <- as.data.frame(all_top20_unique)
+
+#write.csv2(all_top20_unique_df, file = "C:\\Users\\lehakkin\\PhD\\Fungal_ITS_soil_vertical_profile\\Heatmap_all_top20_unique_with_unclassified_df.csv", row.names = FALSE)
+
+```
+
+
+# 6. Make a phyloseq of picked taxa
+
+```{r}
+# first aggregate to genus
+ps_RA_nf_genus <- aggregate_rare(ps_RA_nf, level = "genus", detection = 0/140, prevalence = 0/100)
+
+# filter by taxa name
+ps_RA_nf_genus_pruned <- prune_taxa(all_top20_unique, ps_RA_nf_genus)
+ps_RA_nf_genus_pruned
+
+setwd('C:\\Users\\lehakkin\\PhD\\Fungal_ITS_soil_vertical_profile')
+
+ps_genus_nf_HETAMAP <- ps_RA_nf_genus_pruned
+#save(ps_genus_nf_HETAMAP, file='ps_genus_nf_HETAMAP_all_top20_unclassified_included')
+```
+
+
+# 7. Add sample_type_depth to meta
+
+
+```{r}
+meta_nf$sample_type_depth <- NA
+
+meta_nf$sample_type_depth[meta_nf$depth_numerical==5 & meta_nf$sample_type=="meadow"]<-"0...10_meadow"
+meta_nf$sample_type_depth[meta_nf$depth_numerical==5 & meta_nf$sample_type=="organic"]<-"0...10_organic"
+meta_nf$sample_type_depth[meta_nf$depth_numerical==5 & meta_nf$sample_type=="conventional"]<-"0...10_conventional"
+
+meta_nf$sample_type_depth[meta_nf$depth_numerical==15 & meta_nf$sample_type=="meadow"]<-"10...20_meadow"
+meta_nf$sample_type_depth[meta_nf$depth_numerical==15 & meta_nf$sample_type=="organic"]<-"10...20_organic"
+meta_nf$sample_type_depth[meta_nf$depth_numerical==15 & meta_nf$sample_type=="conventional"]<-"10...20_conventional"
+
+meta_nf$sample_type_depth[meta_nf$depth_numerical==25 & meta_nf$sample_type=="meadow"]<-"20...30_meadow"
+meta_nf$sample_type_depth[meta_nf$depth_numerical==25 & meta_nf$sample_type=="organic"]<-"20...30_organic"
+meta_nf$sample_type_depth[meta_nf$depth_numerical==25 & meta_nf$sample_type=="conventional"]<-"20...30_conventional"
+
+meta_nf$sample_type_depth[meta_nf$depth_numerical==35 & meta_nf$sample_type=="meadow"]<-"30...40_meadow"
+meta_nf$sample_type_depth[meta_nf$depth_numerical==35 & meta_nf$sample_type=="organic"]<-"30...40_organic"
+meta_nf$sample_type_depth[meta_nf$depth_numerical==35 & meta_nf$sample_type=="conventional"]<-"30...40_conventional"
+
+meta_nf$sample_type_depth[meta_nf$depth_numerical==60 & meta_nf$sample_type=="meadow"]<-"40...80_meadow"
+meta_nf$sample_type_depth[meta_nf$depth_numerical==60 & meta_nf$sample_type=="organic"]<-"40...80_organic"
+meta_nf$sample_type_depth[meta_nf$depth_numerical==60 & meta_nf$sample_type=="conventional"]<-"40...80_conventional"
+
+
+sample_type_depth <- unique(meta_nf$sample_type_depth)
+sample_type_depth
+
+# add the new meta_nf to ps_RA_nf_genus_pruned
+sample_data(ps_RA_nf_genus_pruned) <- sample_data(meta_nf)
+
+```
+
+
+# 8. Test abundance differences
+
+lets test separately for the ones that make sense, for example, no point testing between organic 0...10 and conventional 10...20, but rather 0...10 for both soil types and then within organic between 0...10 and 10...20
+
+NOTE! At the end of chunk I  do p-value adjustment ("BH") for all comparisons in the chunk
+
+
+## 8.1. 0...10 all soil types
+
+```{r}
+library("data.table")
+library("rstatix")
+
+subset <- subset_samples(ps_RA_nf_genus_pruned, sample_type_depth=="0...10_meadow" | sample_type_depth=="0...10_conventional" | sample_type_depth=="0...10_organic")
+subset
+
+#create data table
+melt_df <-  psmelt(subset)
+# Make sample_type_depth into a factor
+melt_df$sample_type_depth <- factor(melt_df$sample_type_depth)
+
+pval.list <- list()
+
+for (i in all_top20_unique)
+{
+  # data.frame with the selected taxonomic group
+  df <- filter(melt_df, genus==i)
+  x <- pairwise.wilcox.test(df$Abundance, df$sample_type_depth,
+                            p.adjust.method = NULL)
+  x <- as.data.frame(x[["p.value"]])
+  x$genus <- i
+  x$comparison <- rownames(x)
+  pval.list[[i]] <- x
+}
+
+pval.list_df1 <- rbindlist(pval.list)
+pval.list_df1 <- as.data.frame(pval.list_df1)
+# make into long format: where the new column  called "vs" contains the sample sample_type_depth comparison, and new column "p_value" contains the p_values
+pval.list_df1 <- gather(pval.list_df1, vs, p_value, 1:2, factor_key=TRUE)
+# adjust p values
+pval.list_df1 <- adjust_pvalue(pval.list_df1, p.col = "p_value", output.col = "adj_p", method = "BH")
+
+```
+
+
+## 8.2. 10...20 all soil types
+
+```{r}
+
+subset <- subset_samples(ps_RA_nf_genus_pruned, sample_type_depth=="10...20_meadow" | sample_type_depth=="10...20_conventional" | sample_type_depth=="10...20_organic")
+subset
+
+#create data table
+melt_df <-  psmelt(subset)
+
+pval.list <- list()
+
+for (i in all_top20_unique)
+{
+  # data.frame with the selected taxonomic group
+  df <- filter(melt_df, genus==i)
+  x <- pairwise.wilcox.test(df$Abundance, df$sample_type_depth,
+                            p.adjust.method = "BH")
+  x <- as.data.frame(x[["p.value"]])
+  x$genus <- i
+  x$comparison <- rownames(x)
+  pval.list[[i]] <- x
+}
+
+pval.list_df2 <- rbindlist(pval.list)
+pval.list_df2 <- as.data.frame(pval.list_df2)
+# make into long format: where the new column  called "vs" contains the sample sample_type_depth comparison, and new column "p_value" contains the p_values
+pval.list_df2 <- gather(pval.list_df2, vs, p_value, 1:2, factor_key=TRUE)
+# adjust p values
+pval.list_df2 <- adjust_pvalue(pval.list_df2, p.col = "p_value", output.col = "adj_p", method = "BH")
+```
+
+
+## 8.3. 20...30 all soil types
+
+```{r}
+
+subset <- subset_samples(ps_RA_nf_genus_pruned, sample_type_depth=="20...30_meadow" | sample_type_depth=="20...30_conventional" | sample_type_depth=="20...30_organic")
+subset
+
+#create data table
+melt_df <-  psmelt(subset)
+
+pval.list <- list()
+
+for (i in all_top20_unique)
+{
+  # data.frame with the selected taxonomic group
+  df <- filter(melt_df, genus==i)
+  x <- pairwise.wilcox.test(df$Abundance, df$sample_type_depth,
+                            p.adjust.method = "BH")
+  x <- as.data.frame(x[["p.value"]])
+  x$genus <- i
+  x$comparison <- rownames(x)
+  pval.list[[i]] <- x
+}
+
+pval.list_df3 <- rbindlist(pval.list)
+pval.list_df3 <- as.data.frame(pval.list_df3)
+# make into long format: where the new column  called "vs" contains the sample sample_type_depth comparison, and new column "p_value" contains the p_values
+pval.list_df3 <- gather(pval.list_df3, vs, p_value, 1:2, factor_key=TRUE)
+# adjust p values
+pval.list_df3 <- adjust_pvalue(pval.list_df3, p.col = "p_value", output.col = "adj_p", method = "BH")
+```
+
+
+## 8.4. 30...40 all soil types
+
+```{r}
+
+subset <- subset_samples(ps_RA_nf_genus_pruned, sample_type_depth=="30...40_meadow" | sample_type_depth=="30...40_conventional" | sample_type_depth=="30...40_organic")
+subset
+
+#create data table
+melt_df <-  psmelt(subset)
+
+pval.list <- list()
+
+for (i in all_top20_unique)
+{
+  # data.frame with the selected taxonomic group
+  df <- filter(melt_df, genus==i)
+  x <- pairwise.wilcox.test(df$Abundance, df$sample_type_depth,
+                            p.adjust.method = "BH")
+  x <- as.data.frame(x[["p.value"]])
+  x$genus <- i
+  x$comparison <- rownames(x)
+  pval.list[[i]] <- x
+}
+
+pval.list_df4 <- rbindlist(pval.list)
+pval.list_df4 <- as.data.frame(pval.list_df4)
+# make into long format: where the new column  called "vs" contains the sample sample_type_depth comparison, and new column "p_value" contains the p_values
+pval.list_df4 <- gather(pval.list_df4, vs, p_value, 1:2, factor_key=TRUE)
+# adjust p values
+pval.list_df4 <- adjust_pvalue(pval.list_df4, p.col = "p_value", output.col = "adj_p", method = "BH")
+```
+
+
+## 8.5. 40...80 all soil types
+
+```{r}
+
+subset <- subset_samples(ps_RA_nf_genus_pruned, sample_type_depth=="40...80_meadow" | sample_type_depth=="40...80_conventional" | sample_type_depth=="40...80_organic")
+subset
+
+#create data table
+melt_df <-  psmelt(subset)
+
+pval.list <- list()
+
+for (i in all_top20_unique)
+{
+  # data.frame with the selected taxonomic group
+  df <- filter(melt_df, genus==i)
+  x <- pairwise.wilcox.test(df$Abundance, df$sample_type_depth,
+                            p.adjust.method = "BH")
+  x <- as.data.frame(x[["p.value"]])
+  x$genus <- i
+  x$comparison <- rownames(x)
+  pval.list[[i]] <- x
+}
+
+pval.list_df5 <- rbindlist(pval.list)
+pval.list_df5 <- as.data.frame(pval.list_df5)
+# make into long format: where the new column  called "vs" contains the sample sample_type_depth comparison, and new column "p_value" contains the p_values
+pval.list_df5 <- gather(pval.list_df5, vs, p_value, 1:2, factor_key=TRUE)
+# adjust p values
+pval.list_df5 <- adjust_pvalue(pval.list_df5, p.col = "p_value", output.col = "adj_p", method = "BH")
+```
+
+
+## 8.6. only organic 0-20
+
+```{r}
+
+subset <- subset_samples(ps_RA_nf_genus_pruned, sample_type_depth=="0...10_organic" | sample_type_depth=="10...20_organic")
+subset
+
+#create data table
+melt_df <-  psmelt(subset)
+
+pval.list <- list()
+
+for (i in all_top20_unique)
+{
+  # data.frame with the selected taxonomic group
+  df <- filter(melt_df, genus==i)
+  x <- pairwise.wilcox.test(df$Abundance, df$sample_type_depth,
+                            p.adjust.method = "BH")
+  x <- as.data.frame(x[["p.value"]])
+  x$genus <- i
+  x$comparison <- rownames(x)
+  pval.list[[i]] <- x
+}
+
+pval.list_df6 <- rbindlist(pval.list)
+pval.list_df6 <- as.data.frame(pval.list_df6)
+# make into long format: where the new column  called "vs" contains the sample sample_type_depth comparison, and new column "p_value" contains the p_values
+pval.list_df6 <- gather(pval.list_df6, vs, p_value, 1, factor_key=TRUE)
+# adjust p values
+pval.list_df6 <- adjust_pvalue(pval.list_df6, p.col = "p_value", output.col = "adj_p", method = "BH")
+```
+
+
+## 8.7. only organic 10-30
+
+```{r}
+
+subset <- subset_samples(ps_RA_nf_genus_pruned, sample_type_depth=="10...20_organic" | sample_type_depth=="20...30_organic")
+subset
+
+#create data table
+melt_df <-  psmelt(subset)
+
+pval.list <- list()
+
+for (i in all_top20_unique)
+{
+  # data.frame with the selected taxonomic group
+  df <- filter(melt_df, genus==i)
+  x <- pairwise.wilcox.test(df$Abundance, df$sample_type_depth,
+                            p.adjust.method = "BH")
+  x <- as.data.frame(x[["p.value"]])
+  x$genus <- i
+  x$comparison <- rownames(x)
+  pval.list[[i]] <- x
+}
+
+pval.list_df7 <- rbindlist(pval.list)
+pval.list_df7 <- as.data.frame(pval.list_df7)
+# make into long format: where the new column  called "vs" contains the sample sample_type_depth comparison, and new column "p_value" contains the p_values
+pval.list_df7 <- gather(pval.list_df7, vs, p_value, 1, factor_key=TRUE)
+# adjust p values
+pval.list_df7 <- adjust_pvalue(pval.list_df7, p.col = "p_value", output.col = "adj_p", method = "BH")
+```
+
+## 8.8. only organic 20-40
+
+```{r}
+
+subset <- subset_samples(ps_RA_nf_genus_pruned, sample_type_depth=="20...30_organic" | sample_type_depth=="30...40_organic")
+subset
+
+#create data table
+melt_df <-  psmelt(subset)
+
+pval.list <- list()
+
+for (i in all_top20_unique)
+{
+  # data.frame with the selected taxonomic group
+  df <- filter(melt_df, genus==i)
+  x <- pairwise.wilcox.test(df$Abundance, df$sample_type_depth,
+                            p.adjust.method = "BH")
+  x <- as.data.frame(x[["p.value"]])
+  x$genus <- i
+  x$comparison <- rownames(x)
+  pval.list[[i]] <- x
+}
+
+pval.list_df8 <- rbindlist(pval.list)
+pval.list_df8 <- as.data.frame(pval.list_df8)
+# make into long format: where the new column  called "vs" contains the sample sample_type_depth comparison, and new column "p_value" contains the p_values
+pval.list_df8 <- gather(pval.list_df8, vs, p_value, 1, factor_key=TRUE)
+# adjust p values
+pval.list_df8 <- adjust_pvalue(pval.list_df8, p.col = "p_value", output.col = "adj_p", method = "BH")
+```
+
+## 8.9. only organic 30-80
+
+```{r}
+
+subset <- subset_samples(ps_RA_nf_genus_pruned, sample_type_depth=="30...40_organic" | sample_type_depth=="40...80_organic")
+subset
+
+#create data table
+melt_df <-  psmelt(subset)
+
+pval.list <- list()
+
+for (i in all_top20_unique)
+{
+  # data.frame with the selected taxonomic group
+  df <- filter(melt_df, genus==i)
+  x <- pairwise.wilcox.test(df$Abundance, df$sample_type_depth,
+                            p.adjust.method = "BH")
+  x <- as.data.frame(x[["p.value"]])
+  x$genus <- i
+  x$comparison <- rownames(x)
+  pval.list[[i]] <- x
+}
+
+pval.list_df9 <- rbindlist(pval.list)
+pval.list_df9 <- as.data.frame(pval.list_df9)
+# make into long format: where the new column  called "vs" contains the sample sample_type_depth comparison, and new column "p_value" contains the p_values
+pval.list_df9 <- gather(pval.list_df9, vs, p_value, 1, factor_key=TRUE)
+# adjust p values
+pval.list_df9 <- adjust_pvalue(pval.list_df9, p.col = "p_value", output.col = "adj_p", method = "BH")
+```
+
+## 8.10. only conventional 0-20
+
+```{r}
+
+subset <- subset_samples(ps_RA_nf_genus_pruned, sample_type_depth=="0...10_conventional" | sample_type_depth=="10...20_conventional")
+subset
+
+#create data table
+melt_df <-  psmelt(subset)
+
+pval.list <- list()
+
+for (i in all_top20_unique)
+{
+  # data.frame with the selected taxonomic group
+  df <- filter(melt_df, genus==i)
+  x <- pairwise.wilcox.test(df$Abundance, df$sample_type_depth,
+                            p.adjust.method = "BH")
+  x <- as.data.frame(x[["p.value"]])
+  x$genus <- i
+  x$comparison <- rownames(x)
+  pval.list[[i]] <- x
+}
+
+pval.list_df10 <- rbindlist(pval.list)
+pval.list_df10 <- as.data.frame(pval.list_df10)
+# make into long format: where the new column  called "vs" contains the sample sample_type_depth comparison, and new column "p_value" contains the p_values
+pval.list_df10 <- gather(pval.list_df10, vs, p_value, 1, factor_key=TRUE)
+# adjust p values
+pval.list_df10 <- adjust_pvalue(pval.list_df10, p.col = "p_value", output.col = "adj_p", method = "BH")
+```
+
+
+## 8.11. only conventional 10-30
+
+```{r}
+
+subset <- subset_samples(ps_RA_nf_genus_pruned, sample_type_depth=="10...20_conventional" | sample_type_depth=="20...30_conventional")
+subset
+
+#create data table
+melt_df <-  psmelt(subset)
+
+pval.list <- list()
+
+for (i in all_top20_unique)
+{
+  # data.frame with the selected taxonomic group
+  df <- filter(melt_df, genus==i)
+  x <- pairwise.wilcox.test(df$Abundance, df$sample_type_depth,
+                            p.adjust.method = "BH")
+  x <- as.data.frame(x[["p.value"]])
+  x$genus <- i
+  x$comparison <- rownames(x)
+  pval.list[[i]] <- x
+}
+
+pval.list_df11 <- rbindlist(pval.list)
+pval.list_df11 <- as.data.frame(pval.list_df11)
+# make into long format: where the new column  called "vs" contains the sample sample_type_depth comparison, and new column "p_value" contains the p_values
+pval.list_df11 <- gather(pval.list_df11, vs, p_value, 1, factor_key=TRUE)
+# adjust p values
+pval.list_df11 <- adjust_pvalue(pval.list_df11, p.col = "p_value", output.col = "adj_p", method = "BH")
+```
+
+
+## 8.12. only conventional 20-40
+
+```{r}
+
+subset <- subset_samples(ps_RA_nf_genus_pruned, sample_type_depth=="20...30_conventional" | sample_type_depth=="30...40_conventional")
+subset
+
+#create data table
+melt_df <-  psmelt(subset)
+
+pval.list <- list()
+
+for (i in all_top20_unique)
+{
+  # data.frame with the selected taxonomic group
+  df <- filter(melt_df, genus==i)
+  x <- pairwise.wilcox.test(df$Abundance, df$sample_type_depth,
+                            p.adjust.method = "BH")
+  x <- as.data.frame(x[["p.value"]])
+  x$genus <- i
+  x$comparison <- rownames(x)
+  pval.list[[i]] <- x
+}
+
+pval.list_df12 <- rbindlist(pval.list)
+pval.list_df12 <- as.data.frame(pval.list_df12)
+# make into long format: where the new column  called "vs" contains the sample sample_type_depth comparison, and new column "p_value" contains the p_values
+pval.list_df12 <- gather(pval.list_df12, vs, p_value, 1, factor_key=TRUE)
+# adjust p values
+pval.list_df12 <- adjust_pvalue(pval.list_df12, p.col = "p_value", output.col = "adj_p", method = "BH")
+```
+
+## 8.13. only conventional 30-80
+
+```{r}
+
+subset <- subset_samples(ps_RA_nf_genus_pruned, sample_type_depth=="30...40_conventional" | sample_type_depth=="40...80_conventional")
+subset
+
+#create data table
+melt_df <-  psmelt(subset)
+
+pval.list <- list()
+
+for (i in all_top20_unique)
+{
+  # data.frame with the selected taxonomic group
+  df <- filter(melt_df, genus==i)
+  x <- pairwise.wilcox.test(df$Abundance, df$sample_type_depth,
+                            p.adjust.method = "BH")
+  x <- as.data.frame(x[["p.value"]])
+  x$genus <- i
+  x$comparison <- rownames(x)
+  pval.list[[i]] <- x
+}
+
+pval.list_df13 <- rbindlist(pval.list)
+pval.list_df13 <- as.data.frame(pval.list_df13)
+# make into long format: where the new column  called "vs" contains the sample sample_type_depth comparison, and new column "p_value" contains the p_values
+pval.list_df13 <- gather(pval.list_df13, vs, p_value, 1, factor_key=TRUE)
+# adjust p values
+pval.list_df13 <- adjust_pvalue(pval.list_df13, p.col = "p_value", output.col = "adj_p", method = "BH")
+```
+
+## 8.14. only meadow 0-20
+
+```{r}
+
+subset <- subset_samples(ps_RA_nf_genus_pruned, sample_type_depth=="0...10_meadow" | sample_type_depth=="10...20_meadow")
+subset
+
+#create data table
+melt_df <-  psmelt(subset)
+
+pval.list <- list()
+
+for (i in all_top20_unique)
+{
+  # data.frame with the selected taxonomic group
+  df <- filter(melt_df, genus==i)
+  x <- pairwise.wilcox.test(df$Abundance, df$sample_type_depth,
+                            p.adjust.method = "BH")
+  x <- as.data.frame(x[["p.value"]])
+  x$genus <- i
+  x$comparison <- rownames(x)
+  pval.list[[i]] <- x
+}
+
+pval.list_df14 <- rbindlist(pval.list)
+pval.list_df14 <- as.data.frame(pval.list_df14)
+# make into long format: where the new column  called "vs" contains the sample sample_type_depth comparison, and new column "p_value" contains the p_values
+pval.list_df14 <- gather(pval.list_df14, vs, p_value, 1, factor_key=TRUE)
+# adjust p values
+pval.list_df14 <- adjust_pvalue(pval.list_df14, p.col = "p_value", output.col = "adj_p", method = "BH")
+```
+
+## 8.15. only meadow 10-30
+
+```{r}
+
+subset <- subset_samples(ps_RA_nf_genus_pruned, sample_type_depth=="10...20_meadow" | sample_type_depth=="20...30_meadow")
+subset
+
+#create data table
+melt_df <-  psmelt(subset)
+
+pval.list <- list()
+
+for (i in all_top20_unique)
+{
+  # data.frame with the selected taxonomic group
+  df <- filter(melt_df, genus==i)
+  x <- pairwise.wilcox.test(df$Abundance, df$sample_type_depth,
+                            p.adjust.method = "BH")
+  x <- as.data.frame(x[["p.value"]])
+  x$genus <- i
+  x$comparison <- rownames(x)
+  pval.list[[i]] <- x
+}
+
+pval.list_df15 <- rbindlist(pval.list)
+pval.list_df15 <- as.data.frame(pval.list_df15)
+# make into long format: where the new column  called "vs" contains the sample sample_type_depth comparison, and new column "p_value" contains the p_values
+pval.list_df15 <- gather(pval.list_df15, vs, p_value, 1, factor_key=TRUE)
+# adjust p values
+pval.list_df15 <- adjust_pvalue(pval.list_df15, p.col = "p_value", output.col = "adj_p", method = "BH")
+```
+
+## 8.16. only meadow 20-40
+
+```{r}
+
+subset <- subset_samples(ps_RA_nf_genus_pruned, sample_type_depth=="20...30_meadow" | sample_type_depth=="30...40_meadow")
+subset
+
+#create data table
+melt_df <-  psmelt(subset)
+
+pval.list <- list()
+
+for (i in all_top20_unique)
+{
+  # data.frame with the selected taxonomic group
+  df <- filter(melt_df, genus==i)
+  x <- pairwise.wilcox.test(df$Abundance, df$sample_type_depth,
+                            p.adjust.method = "BH")
+  x <- as.data.frame(x[["p.value"]])
+  x$genus <- i
+  x$comparison <- rownames(x)
+  pval.list[[i]] <- x
+}
+
+pval.list_df16 <- rbindlist(pval.list)
+pval.list_df16 <- as.data.frame(pval.list_df16)
+# make into long format: where the new column  called "vs" contains the sample sample_type_depth comparison, and new column "p_value" contains the p_values
+pval.list_df16 <- gather(pval.list_df16, vs, p_value, 1, factor_key=TRUE)
+# adjust p values
+pval.list_df16 <- adjust_pvalue(pval.list_df16, p.col = "p_value", output.col = "adj_p", method = "BH")
+```
+
+## 8.17. only meadow 30-80
+
+```{r}
+
+subset <- subset_samples(ps_RA_nf_genus_pruned, sample_type_depth=="30...40_meadow" | sample_type_depth=="40...80_meadow")
+subset
+
+#create data table
+melt_df <-  psmelt(subset)
+
+pval.list <- list()
+
+for (i in all_top20_unique)
+{
+  # data.frame with the selected taxonomic group
+  df <- filter(melt_df, genus==i)
+  x <- pairwise.wilcox.test(df$Abundance, df$sample_type_depth,
+                            p.adjust.method = "BH")
+  x <- as.data.frame(x[["p.value"]])
+  x$genus <- i
+  x$comparison <- rownames(x)
+  pval.list[[i]] <- x
+}
+
+pval.list_df17 <- rbindlist(pval.list)
+pval.list_df17 <- as.data.frame(pval.list_df17)
+# make into long format: where the new column  called "vs" contains the sample sample_type_depth comparison, and new column "p_value" contains the p_values
+pval.list_df17 <- gather(pval.list_df17, vs, p_value, 1, factor_key=TRUE)
+# adjust p values
+pval.list_df17 <- adjust_pvalue(pval.list_df17, p.col = "p_value", output.col = "adj_p", method = "BH")
+```
+
+
+
+
+# 11. combine all p-values
+
+```{r}
+all.pvals <- rbind(pval.list_df1, pval.list_df2, pval.list_df3, pval.list_df4, pval.list_df5, pval.list_df6, pval.list_df7, pval.list_df8, pval.list_df9, pval.list_df10, pval.list_df11, pval.list_df12, pval.list_df13, pval.list_df14, pval.list_df14, pval.list_df16, pval.list_df17)
+
+all.sig.pvals <- all.pvals[all.pvals$adj_p <= 0.05, ]   
+
+#write.csv2(all.sig.pvals, file = "C:\\Users\\lehakkin\\PhD\\Fungal_ITS_soil_vertical_profile\\HEATMAP_NO_CLUSTERS_Including_Unclassified_sig_wilcox_p_values.csv", row.names = FALSE)
+
+all.sig.genus <- unique(all.sig.pvals$genus)
+length(all.sig.genus)
+
+```
+
+
+# 12. Make ps with the significant taxa and get taxa mean and se values
+
+```{r}
+# only keep sig
+
+# filter by taxa name
+ps_RA_nf_genus_pruned_sig <- prune_taxa(all.sig.genus, ps_RA_nf_genus_pruned)
+ps_Heatmap <- ps_RA_nf_genus_pruned_sig
+ps_Heatmap
+
+rm(ps_RA_nf_genus_pruned_sig)
+
+df <- psmelt(ps_Heatmap)
+
+x <- df %>%
+  group_by(OTU, sample_type, depth) %>%
+  summarise(mean = mean(Abundance, na.rm = TRUE), se = (sd(Abundance, na.rm = TRUE)/sqrt(length((Abundance)))))
+
+x
+
+#write.csv2(x, file = "V\\HEATMAP_sig_GENERA_NO_CLUSTERS_Including_Unclassified_mean_and_se.csv", row.names = FALSE)
+
+```
+
+
+# 13. MAKE HEATMAP
+
+
+## 13.1. Add FUNGuild annotation for HEATMAP
+
+### 13.1.1. Build FUNGuild
+
+
+I need to make a separate funguild phyloseq for heatmap, where I have only the genus and higher level annotation (no species level)
+
+
+```{r}
+setwd('C:\\Users\\lehakkin\\PhD\\Fungal_ITS_soil_vertical_profile')
+
+FG <- read.csv2("FUNGuild_31_05_2024.csv")
+
+# what different levels there are:
+unique(FG$taxonomicLevel)
+```
+
+I will get the annotations from genus and higher tax levels:
+
+Genus
+
+```{r}
+fg <- FG[FG$taxonomicLevel == "Genus", ]      
+tax_table <- as.data.frame(tax_table(ps))
+tax_table$OTU <- rownames(tax_table)
+
+# merge tables
+colnames(fg)[1] <- "genus"
+FG_tax_table <- merge(tax_table, fg, by = "genus", all.x = TRUE)
+
+
+# modify "possible"s to NA's at guild and trophic mode -level
+FG_tax_table$guild[FG_tax_table$confidenceRanking == "Possible"] <- NA
+FG_tax_table$trophicMode[FG_tax_table$confidenceRanking == "Possible"] <- NA
+
+# only keep the OTU, TrophicMode and guild
+# and OTU as row names
+
+FG_tax_table <- FG_tax_table[c("OTU", "trophicMode", "guild")]
+
+# and OTU as row names
+FG_tax_table <- column_to_rownames(FG_tax_table, var = "OTU")
+
+# change column names
+colnames(FG_tax_table)[1] <- "trophicMode_gen"
+colnames(FG_tax_table)[2] <- "guild_gen"
+
+# save with new name
+FUNGuild_gen <- FG_tax_table
+
+
+```
+
+
+Family
+
+```{r}
+fg <- FG[FG$taxonomicLevel == "Family", ]      
+tax_table <- as.data.frame(tax_table(ps))
+tax_table$OTU <- rownames(tax_table)
+
+# merge tables
+colnames(fg)[1] <- "family"
+FG_tax_table <- merge(tax_table, fg, by = "family", all.x = TRUE)
+
+# modify "possible"s to NA's at guild and trophic mode -level
+FG_tax_table$guild[FG_tax_table$confidenceRanking == "Possible"] <- NA
+FG_tax_table$trophicMode[FG_tax_table$confidenceRanking == "Possible"] <- NA
+
+# only keep the OTU, TrophicMode and guild
+FG_tax_table <- FG_tax_table[c("OTU", "trophicMode", "guild")]
+
+# and taxon as row names
+FG_tax_table <- column_to_rownames(FG_tax_table, var = "OTU")
+
+# change column names
+colnames(FG_tax_table)[1] <- "trophicMode_fam"
+colnames(FG_tax_table)[2] <- "guild_fam"
+
+# save with new name
+FUNGuild_fam <- FG_tax_table
+```
+
+
+Order
+
+```{r}
+fg <- FG[FG$taxonomicLevel == "Order", ]      
+tax_table <- as.data.frame(tax_table(ps))
+tax_table$OTU <- rownames(tax_table)
+
+# merge tables
+colnames(fg)[1] <- "order"
+FG_tax_table <- merge(tax_table, fg, by = "order", all.x = TRUE)
+
+# modify "possible"s to NA's at guild and trophic mode -level
+FG_tax_table$guild[FG_tax_table$confidenceRanking == "Possible"] <- NA
+FG_tax_table$trophicMode[FG_tax_table$confidenceRanking == "Possible"] <- NA
+
+# only keep the OTU, TrophicMode and guild
+FG_tax_table <- FG_tax_table[c("OTU", "trophicMode", "guild")]
+
+# and taxon as row names
+FG_tax_table <- column_to_rownames(FG_tax_table, var = "OTU")
+
+# change column names
+colnames(FG_tax_table)[1] <- "trophicMode_ord"
+colnames(FG_tax_table)[2] <- "guild_ord"
+
+# save with new name
+FUNGuild_ord <- FG_tax_table
+```
+
+
+Phylum
+
+
+```{r}
+fg <- FG[FG$taxonomicLevel == "Phylum", ]      
+tax_table <- as.data.frame(tax_table(ps))
+tax_table$OTU <- rownames(tax_table)
+
+# merge tables
+colnames(fg)[1] <- "phylum"
+FG_tax_table <- merge(tax_table, fg, by = "phylum", all.x = TRUE)
+
+# modify "possible"s to NA's at guild and trophic mode -level
+FG_tax_table$guild[FG_tax_table$confidenceRanking == "Possible"] <- NA
+FG_tax_table$trophicMode[FG_tax_table$confidenceRanking == "Possible"] <- NA
+
+# only keep the OTU, TrophicMode and guild
+FG_tax_table <- FG_tax_table[c("OTU", "trophicMode", "guild")]
+
+# and OTU as row names
+FG_tax_table <- column_to_rownames(FG_tax_table, var = "OTU")
+
+# change column names
+colnames(FG_tax_table)[1] <- "trophicMode_phy"
+colnames(FG_tax_table)[2] <- "guild_phy"
+
+# save with new name
+FUNGuild_phy <- FG_tax_table
+```
+
+
+Combine all annotations:Genus  Family  Order Phylum
+
+```{r}
+
+x <- left_join(rownames_to_column(FUNGuild_gen), rownames_to_column(FUNGuild_fam), by = "rowname")
+x <- left_join(x, rownames_to_column(FUNGuild_ord), by = "rowname")
+x <- left_join(x, rownames_to_column(FUNGuild_phy), by = "rowname")
+```
+
+
+
+```{r}
+
+# get the value from another column if NA
+y <- x %>%
+  mutate(trophicMode_gen = coalesce(trophicMode_gen,trophicMode_fam))
+
+# get the value from another column if NA
+y <- y %>%
+  mutate(guild_gen = coalesce(guild_gen,guild_fam))
+
+# same for order
+# get the value from another column if NA
+y <- y %>%
+  mutate(trophicMode_gen = coalesce(trophicMode_gen,trophicMode_ord))
+
+# get the value from another column if NA
+y <- y %>%
+  mutate(guild_gen = coalesce(guild_gen,guild_ord))
+
+# same for phylum
+# get the value from another column if NA
+y <- y %>%
+  mutate(trophicMode_gen = coalesce(trophicMode_gen,trophicMode_phy))
+
+# get the value from another column if NA
+y <- y %>%
+  mutate(guild_gen = coalesce(guild_gen,guild_phy))
+
+# then rename the gen columns
+colnames(y)[2] <- "trophicMode"
+colnames(y)[3] <- "guild"
+
+
+# remove the rest of the columns
+y <- y[, -c(4:11)]
+
+# rownames
+y2 <- y[,-1]
+rownames(y2) <- y[,1]
+
+```
+
+
+```{r}
+# Remove empty spaces and remove also "|"
+
+y2$trophicMode <- gsub(" ", "", y2$trophicMode, fixed = TRUE)
+y2$guild <- gsub("|", "", y2$guild, fixed = TRUE)
+```
+
+
+
+```{r}
+y3 <- left_join(rownames_to_column(y2), rownames_to_column(tax_table), by = "rowname")
+row.names(y3) <- y3$rowname
+y3 <- y3[, -1]
+
+```
+
+
+Define AMFs, Ectomycorrhizal and Plant pathogens
+
+Here in FUNGuild column:
+
+- Ectomycorrhizal           =   guilds containing "Ectomycorrhizal" from trophic mode Symbiotroph only, NOTE! this is same as pure Ectomycorrhizal!!
+- Arbuscular Mycorrhizal    =   all guilds containing "Arbuscular Mycorrhizal" from trophic mode Symbiotroph (no AMF in other trophic modes)
+- Endophyte                 =   Pure endophytes from trophic mode Symbiotroph only
+- Plant Pathogen            =   Pure Plant Pathogens from trophic mode Pathotroph only
+
+
+```{r}
+z <- y3
+
+z <- z %>%  
+   mutate(FG = case_when(grepl("Ectomycorrhizal", guild) & trophicMode=="Symbiotroph" ~ "Ectomycorrhizal", grepl("Arbuscular", guild) ~ "Arbuscular Mycorrhizal", guild == "Endophyte" & trophicMode=="Symbiotroph" ~ "Endophyte", guild=="Plant Pathogen" & trophicMode=="Pathotroph"~ "Plant Pathogen"))
+```
+
+
+```{r}
+z <- z %>%
+  mutate(FUNGuild = case_when(FG == "Ectomycorrhizal" |  FG == "Arbuscular Mycorrhizal" | FG == "Endophyte" | FG == "Plant Pathogen" ~ FG, guild != "Ectomycorrhizal" |  FG != "Arbuscular Mycorrhizal" |  FG != "Endophyte" | FG != "Plant Pathogen" ~ z$trophicMode))
+
+```
+
+
+
+```{r}
+FG_tax_table <- z
+
+# remove the FG column
+
+FG_tax_table <- FG_tax_table[, -c(11)]
+
+```
+
+
+Check the different written forms, if I have empty spaces?
+
+```{r}
+unique(FG_tax_table$trophicMode)
+#unique(FG_tax_table$guild)
+unique(FG_tax_table$FUNGuild)
+```
+
+
+
+```{r}
+# change some names for FUNGuild
+FG_tax_table$FUNGuild[FG_tax_table$FUNGuild=="Symbiotroph"] <- "Other Symbiotroph"
+FG_tax_table$FUNGuild[FG_tax_table$FUNGuild=="Pathotroph"] <- "Other Pathotroph"
+FG_tax_table$FUNGuild[FG_tax_table$FUNGuild=="Pathotroph-Pathotroph-Saprotroph"] <- "Pathotroph-Saprotroph"
+FG_tax_table$FUNGuild[FG_tax_table$FUNGuild=="Saprotroph-Saprotroph-Symbiotroph"] <- "Saprotroph-Symbiotroph"
+
+# and for trophicMode
+FG_tax_table$trophicMode[FG_tax_table$trophicMode=="Pathotroph-Pathotroph-Saprotroph"] <- "Pathotroph-Saprotroph"
+FG_tax_table$trophicMode[FG_tax_table$trophicMode=="Saprotroph-Saprotroph-Symbiotroph"] <- "Saprotroph-Symbiotroph"
+
+# reorder
+FG_tax_table <- FG_tax_table[, c(1:2, 11, 3:10)]
+
+```
+
+
+Check again
+
+```{r}
+unique(FG_tax_table$trophicMode)
+#unique(FG_tax_table$guild)
+unique(FG_tax_table$FUNGuild)
+```
+
+
+### 13.1.2. Save ps_FG for HEATMAP
+
+
+```{r}
+setwd('C:\\Users\\lehakkin\\PhD\\Fungal_ITS_soil_vertical_profile')
+
+load('ps_FINAL')
+
+ps_FG_HEATMAP_no_clusters <- phyloseq(otu_table(ps), tax_table(as.matrix(FG_tax_table)), sample_data(ps))
+ps_FG_HEATMAP_no_clusters
+
+
+#save(ps_FG_HEATMAP_no_clusters, file = 'ps_FG_for_HEATMAP_no_clusters_significant_Including_Unclassified')
+
+```
+
+
+### 13.1.3. START HERE FOR FIGURE: Load everything needed
+
+```{r}
+setwd('C:\\Users\\lehakkin\\PhD\\Fungal_ITS_soil_vertical_profile')
+
+#load('ps_FINAL')
+ps
+
+ps_RA <- transform(ps, "compositional")
+
+# Pick relative abundances (compositional) and sample metadata 
+
+ps_RA_nf <- subset_samples(ps_RA, sample_type!="forest")
+
+# You have only submitted samples, not OTUs. Define prevalence of each taxa
+# (in how many samples did each taxa appear at least once)
+prev0 = apply(X = otu_table(ps_RA_nf),
+              MARGIN = ifelse(taxa_are_rows(ps_RA_nf), yes = 1, no = 2),
+              FUN = function(x){sum(x > 0)})
+
+# Execute prevalence filter, using `prune_taxa()` function
+ps_RA_nf = prune_taxa((prev0 > 0), ps_RA_nf)
+ps_RA_nf
+
+all.sig.pvals <- read.csv2("HEATMAP_NO_CLUSTERS_Including_Unclassified_sig_wilcox_p_values.csv")
+
+all.sig.genus <- unique(all.sig.pvals$genus)
+length(all.sig.genus)
+
+#load('ps_FG_for_HEATMAP_no_clusters_significant_Including_Unclassified')#ps_FG_HEATMAP_no_clusters
+
+# first aggregate to genus
+ps_RA_nf_genus <- aggregate_rare(ps_RA_nf, level = "genus", detection = 0/140, prevalence = 0/100)
+
+#all_top20_unique <- read.csv2("C:\\Users\\lehakkin\\PhD\\Fungal_ITS_soil_vertical_profile\\Heatmap_all_top20_unique_with_unclassified_df.csv")
+
+all_top20_unique <- all_top20_unique$all_top20_unique
+
+# filter by taxa name
+ps_RA_nf_genus_pruned <- prune_taxa(all_top20_unique, ps_RA_nf_genus)
+ps_RA_nf_genus_pruned
+
+# filter by taxa name
+ps_RA_nf_genus_pruned_sig <- prune_taxa(all.sig.genus, ps_RA_nf_genus_pruned)
+ps_Heatmap <- ps_RA_nf_genus_pruned_sig
+ps_Heatmap
+```
+
+
+
+```{r}
+FG_tax <- as.data.frame(as.matrix(tax_table(ps_FG_HEATMAP_no_clusters)))
+```
+
+
+## 13.1.5.Transform RA and z scaled
+
+
+```{r}
+ps_genus <- aggregate_rare(ps, level = 'genus', detection = 0/100, prevalence = 0/100)
+ps_genus
+
+# subset
+ps_genus_NO_FOREST <- subset_samples(ps_genus, sample_type!="forest")
+ps_genus_NO_FOREST
+
+meta_nf <- meta(ps_genus_NO_FOREST)
+
+meta_nf$Depth <- gsub("...", "-", meta_nf$depth, fixed = TRUE)
+
+meta_nf$Depth[meta_nf$Depth=="40-"] <- "40-80"
+
+
+meta_nf$Depth[meta_nf$Depth=="0-10"] <- "0-10 cm"
+meta_nf$Depth[meta_nf$Depth=="10-20"] <- "10-20 cm"
+meta_nf$Depth[meta_nf$Depth=="20-30"] <- "20-30 cm"
+meta_nf$Depth[meta_nf$Depth=="30-40"] <- "30-40 cm"
+meta_nf$Depth[meta_nf$Depth=="40-80"] <- "40-80 cm"
+
+# RA-transform
+ps_genus_NO_FOREST_RA <- microbiome::transform(ps_genus_NO_FOREST, 'compositional')
+
+# Z-transform
+ps_genus_NO_FOREST_RA_z <- microbiome::transform(ps_genus_NO_FOREST_RA, 'Z', log10 = FALSE)
+
+# subset to only the significant genus from above
+
+hetamap.taxa <- taxa_names(ps_Heatmap)
+data <- as(otu_table(ps_genus_NO_FOREST_RA_z), "matrix")
+data <- as.data.frame(data)
+data_subset <- data[(row.names(data) %in% hetamap.taxa),]
+
+data_subset <- as.matrix(data_subset)
+
+# add annotations "Depth" and "Treatment"
+my_sample_col <- data.frame(meta_nf[c("Depth", "sample_type")], row.names = row.names(meta_nf))
+colnames(my_sample_col) <- c("Depth", "Treatment")
+
+
+x <- as.data.frame(t(data_subset))
+y <- as.data.frame(my_sample_col)
+colnames(y) <- c("Depth", "sample_type")
+z <- dplyr::left_join(rownames_to_column(x), rownames_to_column(y), by=c("rowname" = "rowname"))
+colnames(z)[1] <- "ID"
+
+f <- z %>%
+  group_by(sample_type, Depth) %>%
+  summarise_all(mean)
+
+# remove ID column
+f <- f[ , -3]
+
+# make new ID column, which is the soiltypedepth
+library(stringr)
+f$ID <- str_c(f$sample_type, '_', f$Depth)
+# make new df with just sample type, depth and sampletypedepth
+
+df <- f[c("sample_type", "Depth", "ID")]
+# remove extra columns from f
+f2 <- f[, -c(1, 2, 72)]
+# column into rownames
+rownames(f2) <- f$ID
+# make into numeric matrix
+f3 <- data.matrix(f2, rownames.force = NA)
+f4 <- t(f3)
+
+# same for df
+# remove extra columns from df
+df2 <- df[ , -c(3)]
+# column into rownames
+rownames(df2) <- df$ID
+my_sample_col2 <- df2
+my_sample_col3 <- as.data.frame(my_sample_col2)
+rownames(my_sample_col3) <- df$ID
+# lets add annotations of samples
+
+# add annotations "Depth" and "soil_type" and change order
+colnames(my_sample_col3) <- c("Treatment", "Depth")
+my_sample_col3 <- my_sample_col3[, c(2,1)]
+```
+
+
+## 13.1.6 Finally plot HEATMAP
+
+```{r fig.dim = c(10, 16)}
+
+library("pheatmap")
+library("ggplotify")
+
+# only keep the genus and FUNGuild
+x <- FG_tax[, c(9, 3)]
+# Remove duplicates by single column
+FUNGuild_tax_table <- x[!duplicated(x$genus), ]
+dim(FUNGuild_tax_table)
+
+# and genus as row names
+rownames(FUNGuild_tax_table) <- NULL
+FUNGuild_tax_table <- column_to_rownames(FUNGuild_tax_table, var = "genus")
+
+# view data frame
+unique(FUNGuild_tax_table$FUNGuild)
+
+FUNGuild_tax_table$FUNGuild <- as.factor(FUNGuild_tax_table$FUNGuild)
+
+# change level order
+FUNGuild_tax_table$FUNGuild <- factor(FUNGuild_tax_table$FUNGuild, levels = c("Plant Pathogen", "Other Pathotroph", "Pathotroph-Saprotroph", "Pathotroph-Saprotroph-Symbiotroph", "Pathotroph-Symbiotroph", "Saprotroph", "Saprotroph-Symbiotroph", "Other Symbiotroph", "Ectomycorrhizal", "Endophyte", "Arbuscular Mycorrhizal"))
+levels(FUNGuild_tax_table$FUNGuild)
+
+
+#Create color palette
+
+my_colour = list(
+  "Treatment" = c(meadow = "#fbc02d", organic = "#8a8a8a", conventional =  "#b71c1c"),
+  Depth = c('0-10 cm' = "#387212", '10-20 cm' = "#ADC476", '20-30 cm' = "#D8D2BA",'30-40 cm' = "#907852", '40-80 cm' = "#6A4C3A"),
+  FUNGuild = c("Plant Pathogen" = "deeppink", "Other Pathotroph" = "#d6849a", "Pathotroph-Saprotroph" = "#e3adbc", "Pathotroph-Saprotroph-Symbiotroph" = "#f1d6dd", "Pathotroph-Symbiotroph" = "#faf1f4", "Saprotroph" = "#CBBEAD", "Saprotroph-Symbiotroph" = "darkseagreen", "Other Symbiotroph" = "lightgreen", "Ectomycorrhizal" = "darkgreen", "Endophyte" = "#A2CF31", "Arbuscular Mycorrhizal" = "darkolivegreen1"))
+
+# add gap between sample_types
+gp_col = which(diff(as.numeric(factor(my_sample_col3$Treatment)))!=0)
+
+p2 <- as.ggplot(function() pheatmap(f4, cluster_cols = FALSE, cluster_rows = TRUE, annotation_col = my_sample_col3, annotation_colors = my_colour, gaps_col = gp_col, color=colorRampPalette(c("navy", "white", "red"))(50), show_colnames = FALSE, legend = TRUE, annotation_row = FUNGuild_tax_table, border_color = NA, cellheight = 16, fontsize = 14, fontsize_row = 14, annotation_names_row = FALSE, annotation_names_col = FALSE))
+
+p2
+```
+
+
+
+# B) HEATMAP for FOREST ONLY fungal genera no filtering by significant genera
+
+
+## 1. load packages and data
+
+```{r}
+
+library('phyloseq')
+library("cowplot")
+library("dplyr")
+library("ggplot2")
+library("vegan")
+library("microbiome")
+library("tibble")
+
+
+setwd('C:\\Users\\lehakkin\\PhD\\Fungal_ITS_soil_vertical_profile')
+
+load('ps_FINAL')
+ps
+
+
+# Pick relative abundances (compositional) and sample metadata 
+ps_RA <- microbiome::transform(ps, "compositional")
+ps_RA_nf <- subset_samples(ps_RA, sample_type=="forest")
+
+# You have only submitted samples, not OTUs. Define prevalence of each taxa
+# (in how many samples did each taxa appear at least once)
+prev0 = apply(X = otu_table(ps_RA_nf),
+              MARGIN = ifelse(taxa_are_rows(ps_RA_nf), yes = 1, no = 2),
+              FUN = function(x){sum(x > 0)})
+
+# Execute prevalence filter, using `prune_taxa()` function
+ps_RA_nf = prune_taxa((prev0 > 0), ps_RA_nf)
+ps_RA_nf
+
+meta_nf <- meta(ps_RA_nf)
+```
+
+
+# 2. Overview of the heatmap analysis
+
+I will use RA values
+For the final heatmap figure the RA values will be standardizes (z-transformed)
+
+1) First pick the **10** most abundant genera in each soil type depth
+2) Make a HEATMAP of the most abundant taxa only
+
+
+# 3. at genus level
+
+```{r}
+
+ps_genus <- aggregate_rare(ps, level = 'genus', detection = 0/100, prevalence = 0/140)
+ps_genus
+
+
+ps_genus_RA <- microbiome::transform(ps_genus, "compositional")
+
+ps_genus_RA_pruned <- subset_samples(ps_genus_RA, sample_type=="forest")
+ps_genus_RA_pruned
+```
+
+
+# 4. Pick 10 most abund taxa in each forest soil layer
+
+```{r}
+# sample wise filtering according to most abund. genera
+
+# Initialize an empty list to store the taxa
+abund.taxa <- list()
+
+for (i in meta_nf$sample_type) {
+  for (j in meta_nf$depth) {
+    x <- sample_names(sample_data(ps_genus_RA_pruned)[sample_data(ps_genus_RA_pruned)$sample_type == i & sample_data(ps_genus_RA_pruned)$depth == j,])
+
+# Calculate taxa mean of the selected samples
+top10 <- head(sort(rowMeans(otu_table(ps_genus_RA_pruned)[,x]), decreasing = TRUE), 10)
+
+result_name <- paste("sample_type", i, "depth", j, sep = "_")
+
+abund.taxa[[result_name]] <- top10
+  }
+}
+
+```
+
+
+
+# 5. Combine picked taxa
+
+```{r}
+management_layer <- c(names(abund.taxa))
+
+all_top10 <- c()
+
+for (i in management_layer) {
+  top10 <- c(names(abund.taxa[[i]]))
+  all_top10 <- c(all_top10, top10)
+
+}
+
+all_top10_unique <- unique(all_top10)
+length(all_top10_unique)
+```
+
+
+# 6. Make a phyloseq of picked taxa
+
+```{r}
+# first aggregate to genus
+ps_RA_nf_genus <- aggregate_rare(ps_RA_nf, level = "genus", detection = 0/140, prevalence = 0/100)
+
+# filter by taxa name
+ps_RA_nf_genus_pruned <- prune_taxa(all_top10_unique, ps_RA_nf_genus)
+ps_RA_nf_genus_pruned
+
+setwd('C:\\Users\\lehakkin\\PhD\\Fungal_ITS_soil_vertical_profile')
+
+ps_genus_FOREST_ONLY_HETAMAP <- ps_RA_nf_genus_pruned
+#save(ps_genus_FOREST_ONLY_HETAMAP, file='ps_genus_nf_HETAMAP_all_top10_FOREST_ONLY_unclassified_included')
+```
+
+
+# 9. Get taxa mean and se values
+
+```{r}
+ps_Heatmap <- ps_genus_FOREST_ONLY_HETAMAP
+ps_Heatmap
+
+df <- psmelt(ps_Heatmap)
+
+x <- df %>%
+  group_by(OTU, sample_type, depth) %>%
+  summarise(mean = mean(Abundance, na.rm = TRUE), se = (sd(Abundance, na.rm = TRUE)/sqrt(length((Abundance)))))
+
+x
+
+#write.csv2(x, file = "C:\\Users\\lehakkin\\PhD\\Fungal_ITS_soil_vertical_profile\\HEATMAP_sig_GENERA_mean_and_se_FOREST_ONLY_all_10_most_abund_unclassified_included.csv", row.names = FALSE)
+
+```
+
+
+# 13. MAKE HEATMAP
+
+
+## 13.1. Add FUNGuild annotation for HEATMAP
+
+### 13.1.1. Build FUNGuild
+
+
+I need to make a separate funguild phyloseq for heatmap, where I have only the genus and higher level annotation (no species level)
+
+
+```{r}
+setwd('V\\R_ITS_yoni\\Analyses_final\\RE_ANNOTATION_2024')
+
+FG <- read.csv2("FUNGuild_31_05_2024.csv")
+
+# what different levels there are:
+unique(FG$taxonomicLevel)
+```
+
+I will get the annotations from genus and higher tax levels:
+
+Genus
+
+```{r}
+fg <- FG[FG$taxonomicLevel == "Genus", ]      
+tax_table <- as.data.frame(tax_table(ps))
+tax_table$OTU <- rownames(tax_table)
+
+# merge tables
+colnames(fg)[1] <- "genus"
+FG_tax_table <- merge(tax_table, fg, by = "genus", all.x = TRUE)
+
+
+# modify "possible"s to NA's at guild and trophic mode -level
+FG_tax_table$guild[FG_tax_table$confidenceRanking == "Possible"] <- NA
+FG_tax_table$trophicMode[FG_tax_table$confidenceRanking == "Possible"] <- NA
+
+# only keep the OTU, TrophicMode and guild
+# and OTU as row names
+
+FG_tax_table <- FG_tax_table[c("OTU", "trophicMode", "guild")]
+
+# and OTU as row names
+FG_tax_table <- column_to_rownames(FG_tax_table, var = "OTU")
+
+# change column names
+colnames(FG_tax_table)[1] <- "trophicMode_gen"
+colnames(FG_tax_table)[2] <- "guild_gen"
+
+# save with new name
+FUNGuild_gen <- FG_tax_table
+
+
+```
+
+
+Family
+
+```{r}
+fg <- FG[FG$taxonomicLevel == "Family", ]      
+tax_table <- as.data.frame(tax_table(ps))
+tax_table$OTU <- rownames(tax_table)
+
+# merge tables
+colnames(fg)[1] <- "family"
+FG_tax_table <- merge(tax_table, fg, by = "family", all.x = TRUE)
+
+# modify "possible"s to NA's at guild and trophic mode -level
+FG_tax_table$guild[FG_tax_table$confidenceRanking == "Possible"] <- NA
+FG_tax_table$trophicMode[FG_tax_table$confidenceRanking == "Possible"] <- NA
+
+# only keep the OTU, TrophicMode and guild
+FG_tax_table <- FG_tax_table[c("OTU", "trophicMode", "guild")]
+
+# and taxon as row names
+FG_tax_table <- column_to_rownames(FG_tax_table, var = "OTU")
+
+# change column names
+colnames(FG_tax_table)[1] <- "trophicMode_fam"
+colnames(FG_tax_table)[2] <- "guild_fam"
+
+# save with new name
+FUNGuild_fam <- FG_tax_table
+```
+
+
+Order
+
+```{r}
+fg <- FG[FG$taxonomicLevel == "Order", ]      
+tax_table <- as.data.frame(tax_table(ps))
+tax_table$OTU <- rownames(tax_table)
+
+# merge tables
+colnames(fg)[1] <- "order"
+FG_tax_table <- merge(tax_table, fg, by = "order", all.x = TRUE)
+
+# modify "possible"s to NA's at guild and trophic mode -level
+FG_tax_table$guild[FG_tax_table$confidenceRanking == "Possible"] <- NA
+FG_tax_table$trophicMode[FG_tax_table$confidenceRanking == "Possible"] <- NA
+
+# only keep the OTU, TrophicMode and guild
+FG_tax_table <- FG_tax_table[c("OTU", "trophicMode", "guild")]
+
+# and taxon as row names
+FG_tax_table <- column_to_rownames(FG_tax_table, var = "OTU")
+
+# change column names
+colnames(FG_tax_table)[1] <- "trophicMode_ord"
+colnames(FG_tax_table)[2] <- "guild_ord"
+
+# save with new name
+FUNGuild_ord <- FG_tax_table
+```
+
+
+Phylum
+
+
+```{r}
+fg <- FG[FG$taxonomicLevel == "Phylum", ]      
+tax_table <- as.data.frame(tax_table(ps))
+tax_table$OTU <- rownames(tax_table)
+
+# merge tables
+colnames(fg)[1] <- "phylum"
+FG_tax_table <- merge(tax_table, fg, by = "phylum", all.x = TRUE)
+
+# modify "possible"s to NA's at guild and trophic mode -level
+FG_tax_table$guild[FG_tax_table$confidenceRanking == "Possible"] <- NA
+FG_tax_table$trophicMode[FG_tax_table$confidenceRanking == "Possible"] <- NA
+
+# only keep the OTU, TrophicMode and guild
+FG_tax_table <- FG_tax_table[c("OTU", "trophicMode", "guild")]
+
+# and OTU as row names
+FG_tax_table <- column_to_rownames(FG_tax_table, var = "OTU")
+
+# change column names
+colnames(FG_tax_table)[1] <- "trophicMode_phy"
+colnames(FG_tax_table)[2] <- "guild_phy"
+
+# save with new name
+FUNGuild_phy <- FG_tax_table
+```
+
+
+Combine all annotations:Genus  Family  Order Phylum
+
+```{r}
+
+x <- left_join(rownames_to_column(FUNGuild_gen), rownames_to_column(FUNGuild_fam), by = "rowname")
+x <- left_join(x, rownames_to_column(FUNGuild_ord), by = "rowname")
+x <- left_join(x, rownames_to_column(FUNGuild_phy), by = "rowname")
+```
+
+
+
+```{r}
+
+# get the value from another column if NA
+y <- x %>%
+  mutate(trophicMode_gen = coalesce(trophicMode_gen,trophicMode_fam))
+
+# get the value from another column if NA
+y <- y %>%
+  mutate(guild_gen = coalesce(guild_gen,guild_fam))
+
+# same for order
+# get the value from another column if NA
+y <- y %>%
+  mutate(trophicMode_gen = coalesce(trophicMode_gen,trophicMode_ord))
+
+# get the value from another column if NA
+y <- y %>%
+  mutate(guild_gen = coalesce(guild_gen,guild_ord))
+
+# same for phylum
+# get the value from another column if NA
+y <- y %>%
+  mutate(trophicMode_gen = coalesce(trophicMode_gen,trophicMode_phy))
+
+# get the value from another column if NA
+y <- y %>%
+  mutate(guild_gen = coalesce(guild_gen,guild_phy))
+
+# then rename the gen columns
+colnames(y)[2] <- "trophicMode"
+colnames(y)[3] <- "guild"
+
+
+# remove the rest of the columns
+y <- y[, -c(4:11)]
+
+# rownames
+y2 <- y[,-1]
+rownames(y2) <- y[,1]
+
+```
+
+
+```{r}
+# Remove empty spaces and remove also "|"
+
+y2$trophicMode <- gsub(" ", "", y2$trophicMode, fixed = TRUE)
+y2$guild <- gsub("|", "", y2$guild, fixed = TRUE)
+```
+
+
+
+```{r}
+y3 <- left_join(rownames_to_column(y2), rownames_to_column(tax_table), by = "rowname")
+row.names(y3) <- y3$rowname
+y3 <- y3[, -1]
+
+```
+
+
+Define AMFs, Ectomycorrhizal and Plant pathogens
+
+Here in FUNGuild column:
+
+- Ectomycorrhizal           =   guilds containing "Ectomycorrhizal" from trophic mode Symbiotroph only, NOTE! this is same as pure Ectomycorrhizal!!
+- Arbuscular Mycorrhizal    =   all guilds containing "Arbuscular Mycorrhizal" from trophic mode Symbiotroph (no AMF in other trophic modes)
+- Endophyte                 =   Pure endophytes from trophic mode Symbiotroph only
+- Plant Pathogen            =   Pure Plant Pathogens from trophic mode Pathotroph only
+
+
+```{r}
+z <- y3
+
+z <- z %>%  
+   mutate(FG = case_when(grepl("Ectomycorrhizal", guild) & trophicMode=="Symbiotroph" ~ "Ectomycorrhizal", grepl("Arbuscular", guild) ~ "Arbuscular Mycorrhizal", guild == "Endophyte" & trophicMode=="Symbiotroph" ~ "Endophyte", guild=="Plant Pathogen" & trophicMode=="Pathotroph"~ "Plant Pathogen"))
+```
+
+
+```{r}
+z <- z %>%
+  mutate(FUNGuild = case_when(FG == "Ectomycorrhizal" |  FG == "Arbuscular Mycorrhizal" | FG == "Endophyte" | FG == "Plant Pathogen" ~ FG, guild != "Ectomycorrhizal" |  FG != "Arbuscular Mycorrhizal" |  FG != "Endophyte" | FG != "Plant Pathogen" ~ z$trophicMode))
+
+```
+
+
+
+```{r}
+FG_tax_table <- z
+
+# remove the FG column
+
+FG_tax_table <- FG_tax_table[, -c(11)]
+
+```
+
+
+Check the different written forms, if I have empty spaces?
+
+```{r}
+unique(FG_tax_table$trophicMode)
+#unique(FG_tax_table$guild)
+unique(FG_tax_table$FUNGuild)
+```
+
+
+
+```{r}
+# change some names for FUNGuild
+FG_tax_table$FUNGuild[FG_tax_table$FUNGuild=="Symbiotroph"] <- "Other Symbiotroph"
+FG_tax_table$FUNGuild[FG_tax_table$FUNGuild=="Pathotroph"] <- "Other Pathotroph"
+FG_tax_table$FUNGuild[FG_tax_table$FUNGuild=="Pathotroph-Pathotroph-Saprotroph"] <- "Pathotroph-Saprotroph"
+FG_tax_table$FUNGuild[FG_tax_table$FUNGuild=="Saprotroph-Saprotroph-Symbiotroph"] <- "Saprotroph-Symbiotroph"
+
+# and for trophicMode
+FG_tax_table$trophicMode[FG_tax_table$trophicMode=="Pathotroph-Pathotroph-Saprotroph"] <- "Pathotroph-Saprotroph"
+FG_tax_table$trophicMode[FG_tax_table$trophicMode=="Saprotroph-Saprotroph-Symbiotroph"] <- "Saprotroph-Symbiotroph"
+
+# reorder
+FG_tax_table <- FG_tax_table[, c(1:2, 11, 3:10)]
+
+```
+
+
+Check again
+
+```{r}
+unique(FG_tax_table$trophicMode)
+#unique(FG_tax_table$guild)
+unique(FG_tax_table$FUNGuild)
+```
+
+
+### 13.1.2. Save ps_FG for HEATMAP
+
+
+```{r}
+#setwd('C:\\Users\\lehakkin\\PhD\\Fungal_ITS_soil_vertical_profile')
+
+#load('ps_FINAL')
+
+ps_FG_HEATMAP_no_clusters <- phyloseq(otu_table(ps), tax_table(as.matrix(FG_tax_table)), sample_data(ps))
+ps_FG_HEATMAP_no_clusters
+
+```
+
+
+### 13.1.3.
+
+
+```{r}
+FG_tax <- as.data.frame(as.matrix(tax_table(ps_FG_HEATMAP_no_clusters)))
+```
+
+
+## 13.1.5.Transform RA and z scaled
+
+```{r}
+ps_genus <- aggregate_rare(ps, level = 'genus', detection = 0/100, prevalence = 0/100)
+ps_genus
+
+# subset
+ps_genus_NO_FOREST <- subset_samples(ps_genus, sample_type=="forest")
+ps_genus_NO_FOREST
+
+meta_nf <- meta(ps_genus_NO_FOREST)
+
+meta_nf$Depth <- gsub("...", "-", meta_nf$depth, fixed = TRUE)
+
+meta_nf$Depth[meta_nf$Depth=="40-"] <- "40-80"
+
+
+meta_nf$Depth[meta_nf$Depth=="0-10"] <- "0-10 cm"
+meta_nf$Depth[meta_nf$Depth=="10-20"] <- "10-20 cm"
+meta_nf$Depth[meta_nf$Depth=="20-30"] <- "20-30 cm"
+meta_nf$Depth[meta_nf$Depth=="30-40"] <- "30-40 cm"
+meta_nf$Depth[meta_nf$Depth=="40-80"] <- "40-80 cm"
+
+# RA-transform
+ps_genus_NO_FOREST_RA <- microbiome::transform(ps_genus_NO_FOREST, 'compositional')
+
+# Z-transform
+ps_genus_NO_FOREST_RA_z <- microbiome::transform(ps_genus_NO_FOREST_RA, 'Z', log10 = FALSE)
+
+# subset to only the 30 genera from above
+
+hetamap.taxa <- taxa_names(ps_Heatmap)
+data <- as(otu_table(ps_genus_NO_FOREST_RA_z), "matrix")
+data <- as.data.frame(data)
+data_subset <- data[(row.names(data) %in% hetamap.taxa),]
+# now only 30 genuses, as should be
+data_subset <- as.matrix(data_subset)
+
+# add annotations "Depth" and "Treatment"
+my_sample_col <- data.frame(meta_nf[c("Depth", "sample_type")], row.names = row.names(meta_nf))
+colnames(my_sample_col) <- c("Depth", "Treatment")
+
+
+x <- as.data.frame(t(data_subset))
+y <- as.data.frame(my_sample_col)
+colnames(y) <- c("Depth", "sample_type")
+z <- dplyr::left_join(rownames_to_column(x), rownames_to_column(y), by=c("rowname" = "rowname"))
+colnames(z)[1] <- "ID"
+
+f <- z %>%
+  group_by(sample_type, Depth) %>%
+  summarise_all(mean)
+
+# remove ID column
+f <- f[ , -3]
+
+# make new ID column, which is the soiltypedepth
+library(stringr)
+f$ID <- str_c(f$sample_type, '_', f$Depth)
+# make new df with just sample type, Depth and sampletypedepth
+
+df <- f[c("sample_type", "Depth", "ID")]
+# remove extra columns from f
+f2 <- f[, -c(1, 2, 34)]
+# column into rownames
+rownames(f2) <- f$ID
+# make into numeric matrix
+f3 <- data.matrix(f2, rownames.force = NA)
+f4 <- t(f3)
+
+# same for df
+# remove extra columns from df
+df2 <- df[ , -c(3)]
+# column into rownames
+rownames(df2) <- df$ID
+my_sample_col2 <- df2
+my_sample_col3 <- as.data.frame(my_sample_col2)
+rownames(my_sample_col3) <- df$ID
+# lets add annotations of samples
+
+# add annotations "Depth" and "soil_type" and change order
+colnames(my_sample_col3) <- c("Treatment", "Depth")
+my_sample_col3 <- my_sample_col3[, c(2,1)]
+```
+
+
+## 13.1.6 Finally plot HEATMAP
+
+```{r fig.dim = c(10, 12)}
+library("pheatmap")
+
+# only keep the genus and FUNGuild
+x <- FG_tax[, c(9, 3)]
+# Remove duplicates by single column
+FUNGuild_tax_table <- x[!duplicated(x$genus), ]
+dim(FUNGuild_tax_table)
+
+# and genus as row names
+rownames(FUNGuild_tax_table) <- NULL
+FUNGuild_tax_table <- column_to_rownames(FUNGuild_tax_table, var = "genus")
+
+# view data frame
+unique(FUNGuild_tax_table$FUNGuild)
+
+FUNGuild_tax_table$FUNGuild <- as.factor(FUNGuild_tax_table$FUNGuild)
+
+# change level order
+FUNGuild_tax_table$FUNGuild <- factor(FUNGuild_tax_table$FUNGuild, levels = c("Plant Pathogen", "Other Pathotroph", "Pathotroph-Saprotroph", "Pathotroph-Saprotroph-Symbiotroph", "Pathotroph-Symbiotroph", "Saprotroph", "Saprotroph-Symbiotroph", "Other Symbiotroph", "Ectomycorrhizal", "Endophyte", "Arbuscular Mycorrhizal"))
+levels(FUNGuild_tax_table$FUNGuild)
+
+
+#Create color palette
+
+my_colour = list(
+  "Treatment" = c(forest = "#1167b1"),
+  Depth = c('0-10 cm' = "#387212", '10-20 cm' = "#ADC476", '20-30 cm' = "#D8D2BA",'30-40 cm' = "#907852", '40-80 cm' = "#6A4C3A"),
+  FUNGuild = c("Plant Pathogen" = "deeppink", "Other Pathotroph" = "#d6849a", "Pathotroph-Saprotroph" = "#e3adbc", "Pathotroph-Saprotroph-Symbiotroph" = "#f1d6dd", "Pathotroph-Symbiotroph" = "#faf1f4", "Saprotroph" = "#CBBEAD", "Saprotroph-Symbiotroph" = "darkseagreen", "Other Symbiotroph" = "lightgreen", "Ectomycorrhizal" = "darkgreen", "Endophyte" = "#A2CF31", "Arbuscular Mycorrhizal" = "darkolivegreen1"))
+
+p3 <- as.ggplot(function() pheatmap(f4, cluster_cols = FALSE, cluster_rows = TRUE, annotation_col = my_sample_col3, annotation_colors = my_colour, color=colorRampPalette(c("navy", "white", "red"))(50), show_colnames = FALSE, legend = TRUE, annotation_row = FUNGuild_tax_table, border_color = NA, cellheight = 16, fontsize = 14, fontsize_row = 14, annotation_names_row = FALSE, annotation_names_col = FALSE))
+
+p3
+```
+
+
+# C) COMPOSTION PLOTS
+
+
+```{r}
+
+library('phyloseq')
+library("cowplot")
+library("dplyr")
+library("ggplot2")
+library("vegan")
+library("microbiome")
+library("tibble")
+library(stringr)
+library(reshape2)
+library(tidyr)
+
+library(metagMisc)
+library(pheatmap)
+library(metagMisc)
+library(RColorBrewer)
+library(viridis)
+library(tidyverse)
+library(ggpubr)
+
+setwd('C:\\Users\\lehakkin\\PhD\\Fungal_ITS_soil_vertical_profile')
+
+load('ps_FINAL')
+ps
+
+
+# Pick relative abundances (compositional) and sample metadata 
+ps_RA <- microbiome::transform(ps, "compositional")
+
+load(file = 'ps_FG_with_NAs')#ps_FG
+ps_FG
+
+
+```
+
+
+# 1. FUNGuild composition
+
+Note, due to reviewers comment, I will redo the Functional guild composition plot so that Unassigned are kept!!!
+
+```{r}
+FG_tax <- ps_FG %>% tax_table() %>% as.data.frame()
+
+unique(FG_tax$trophicMode)
+
+
+```
+
+## 1.1. separate pure Plant pathogens
+
+Note! In the composition figure:
+
+- Ectomycorrhizal           =   guilds containing "Ectomycorrhizal" from trophic mode Symbiotroph only, NOTE! thiis is same as pure Ectomycorrhizal!!
+- Arbuscular Mycorrhizal    =   all guilds containing "Arbuscular Mycorrhizal" from trophic mode Symbiotroph (nor AMF in other TMs)
+- Endophyte                 =   Pure endophytes from trophic mode Symbiotroph only
+- Plant Pathogen            =   Pure Plant Pathogens from trophic mode Pathotroph only
+
+
+```{r}
+z <- FG_tax
+
+z <- z %>%  
+   mutate(FG = case_when(grepl("Ectomycorrhizal", guild) & trophicMode=="Symbiotroph" ~ "Ectomycorrhizal", grepl("Arbuscular", guild) ~ "Arbuscular Mycorrhizal", guild == "Endophyte" & trophicMode=="Symbiotroph" ~ "Endophyte", guild=="Plant Pathogen" & trophicMode=="Pathotroph"~ "Plant Pathogen"))
+```
+
+
+```{r}
+z <- z %>%
+  mutate(FUNGuild = case_when(FG == "Ectomycorrhizal" |  FG == "Arbuscular Mycorrhizal" | FG == "Endophyte" | FG == "Plant Pathogen" ~ FG, guild != "Ectomycorrhizal" |  FG != "Arbuscular Mycorrhizal" |  FG != "Endophyte" | FG != "Plant Pathogen" ~ z$trophicMode))
+
+```
+
+
+```{r}
+# change some names for FUNGuild
+z$FUNGuild[z$FUNGuild=="Symbiotroph"] <- "Other Symbiotroph"
+z$FUNGuild[z$FUNGuild=="Pathotroph"] <- "Other Pathotroph"
+
+```
+
+
+```{r}
+
+# remove species and FG
+tax <- z[, -c(10, 12)]
+
+unique(tax$FUNGuild)
+
+# rename FUNGuild to species
+colnames(tax)[3] <- "species"
+tax <- tax %>% as.matrix()
+
+# reassign to phyloseq
+x <- ps_FG
+tax_table(x) <- tax_table(tax)
+
+x <- aggregate_rare(x, level = "species", detection = 0, prevalence = 0)
+x               
+# 12 taxa and 140 samples
+
+# lets not remove NAs!!
+
+# remove "Unknown"
+#allTaxa = taxa_names(x)
+#badTaxa = c("Unknown")
+#myTaxa <- allTaxa[!(allTaxa %in% badTaxa)]
+#x <- prune_taxa(myTaxa, x)
+#x
+# would be 11 taxa and 140 samples
+
+x_RA <- transform(x, 'compositional')
+```
+
+
+## 1.2. Plot
+
+```{r fig.dim = c(10, 8)}
+#create data table
+df <-  psmelt(x_RA)
+
+sampletype_names <- list(
+  'forest' = "forest", 'meadow' = "meadow", 'organic' = "organic", 'conventional' = "conventional"
+)
+
+sampletype_labeller <- function(variable,value){
+  return(sampletype_names[value])
+}
+
+df$species <- factor(df$species)
+
+levels(df$species)
+
+
+# change level order
+
+df$species <- factor(df$species, levels = c("Unknown","Plant Pathogen", "Other Pathotroph", "Pathotroph-Saprotroph", "Pathotroph-Saprotroph-Symbiotroph", "Pathotroph-Symbiotroph", "Saprotroph", "Saprotroph-Symbiotroph", "Other Symbiotroph", "Ectomycorrhizal", "Endophyte", "Arbuscular Mycorrhizal"))
+levels(df$species)
+
+
+#Create color palette
+
+my_colour = list(
+  "sample" = c(meadow = "#fbc02d", organic = "#8a8a8a", conventional =  "#b71c1c"),
+  depth = c('0...10' = "#387212", '10...20' = "#ADC476", '20...30' = "#D8D2BA",'30...40' = "#907852", '40...' = "#6A4C3A"),
+  FUNGuild = c("Unknown" = "grey", "Plant Pathogen" = "deeppink", "Other Pathotroph" = "#d6849a", "Pathotroph-Saprotroph" = "#e3adbc", "Pathotroph-Saprotroph-Symbiotroph" = "#f1d6dd", "Pathotroph-Symbiotroph" = "#faf1f4", "Saprotroph" = "#CBBEAD", "Saprotroph-Symbiotroph" = "darkseagreen", "Other Symbiotroph" = "lightgreen", "Ectomycorrhizal" = "darkgreen", "Endophyte" = "#A2CF31", "Arbuscular Mycorrhizal" = "darkolivegreen1"))
+
+
+# Make new depth variable
+
+df$Depth <- df$depth
+
+df$Depth <- gsub("...", "-", df$Depth, fixed = TRUE)
+
+df$Depth[df$Depth=="40-"] <- "40-80"
+
+
+df$Depth[df$Depth=="0-10"] <- "0-10 cm"
+df$Depth[df$Depth=="10-20"] <- "10-20 cm"
+df$Depth[df$Depth=="20-30"] <- "20-30 cm"
+df$Depth[df$Depth=="30-40"] <- "30-40 cm"
+df$Depth[df$Depth=="40-80"] <- "40-80 cm"
+
+FG  <- ggplot(df, aes(x = Depth ,y = Abundance, fill = species)) + geom_bar(stat="identity", position="fill") + scale_fill_manual(values = my_colour[["FUNGuild"]]) + facet_grid (cols = vars(sample_type), labeller=sampletype_labeller) + geom_bar(stat="identity", position="fill") + theme(panel.border = element_rect(colour = "black", fill=NA, size=0.5)) + theme_cowplot() +
+  theme(axis.text = element_text(size=14),
+        axis.title = element_text(size=18),
+        legend.text = element_text(size=16),
+        legend.title = element_text(size=18),
+        legend.spacing.y = unit(0, 'cm'),
+        legend.key.size = unit(0.8, 'cm'),
+        title = element_text(size=18))+ theme(axis.text.x = element_text(angle = 45, hjust = 1)) + guides(fill = guide_legend(nrow = 4, title="")) + theme(strip.text.x = element_text(size = 22)) +
+  ylab(label = "Relative abundance") + theme(legend.position="top") +  xlab("Depth")
+
+FG
+
+```
+
+
+
+# 2. Class composition
+
+```{r fig.dim = c(10, 10)}
+ps_RA <- microbiome::transform(ps, 'compositional')
+
+ps_RA.class <- aggregate_rare(ps_RA, level = 'class', detection = 3/100, prevalence = 3/140, include.lowest = TRUE)
+ps_RA.class
+
+#create data table
+ps_RA.class_df <-  psmelt(ps_RA.class)
+
+#Create color palette
+#set color palette from RColorBrewer
+# Define the number of colors you want
+library("RColorBrewer") # nice color options
+nb.cols = length(unique((as.data.frame(ps_RA.class@tax_table))$class))
+cbbPalette <- colorRampPalette(brewer.pal(12, "Set3"))(nb.cols)
+
+sampletype_names <- list(
+  'forest' = "forest", 'meadow' = "meadow", 'organic' = "organic", 'conventional' = "conventional"
+)
+
+sampletype_labeller <- function(variable,value){
+  return(sampletype_names[value])
+}
+
+# check unique values for class
+unique(ps_RA.class_df$class)
+
+is.factor(ps_RA.class_df$class)
+ps_RA.class_df$class <- as.factor(ps_RA.class_df$class)
+levels(ps_RA.class_df$class)
+
+ps_RA.class_df$class <- relevel(ps_RA.class_df$class, "Other")
+
+cbbPalette <- c("#b2b2b2", "#8DD3C7", "#FFED6F", "#CAAEC5", "#F68378", "#8D6942", "#F3B962", "#BCD868", "#6E99BE", "#F0D1E1", "#C191C2", "#FFFFC6", "darkgreen", "#D0D9CD", "#8BC081", "#FF8DB5")
+
+
+
+# plot with detection = 1/100, prevalence = 2/100
+#Create a plot
+classF  <- ggplot(ps_RA.class_df, aes(x = depth ,y = Abundance, fill = class)) + geom_bar(stat="identity", position="fill") + scale_fill_manual(values = cbbPalette) + facet_grid (cols = vars(sample_type), labeller=sampletype_labeller) + geom_bar(stat="identity", position="fill") + scale_fill_manual(values = cbbPalette) + theme(panel.border = element_rect(colour = "black", fill=NA, size=0.5)) + theme_cowplot() +
+  theme(axis.text = element_text(size=14),
+        axis.title = element_text(size=18),
+        legend.text = element_text(size=16),
+        legend.title = element_text(size=18),
+        legend.spacing.y = unit(0, 'cm'),
+        legend.key.size = unit(0.8, 'cm'),
+        title = element_text(size=18))+ theme(axis.text.x = element_text(angle = 45, hjust = 1)) + guides(fill = guide_legend(nrow = 6, title="")) + theme(strip.text.x = element_text(size = 22)) +
+  ylab(label = "Relative abundance") + theme(legend.position="top") +
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.title.x = element_blank())
+
+classF
+```
+
+
+# 3. Phylum composition
+
+
+```{r fig.dim = c(10, 5)}
+
+ps_RA_phyla_aggr <- aggregate_rare(ps_RA, level = 'phylum', detection = 2/100, prevalence = 2/140)
+ps_RA_phyla_aggr
+
+#create data table
+ps_RA_phyla_df <-  psmelt(ps_RA_phyla_aggr)
+
+#Create color palette
+cbbPalette <- c("#666666","#1B9E77", "#D95F02", "#E7298A", "#7570B3", "#66A61E")
+
+sampletype_names <- list(
+  'forest' = "forest", 'meadow' = "meadow", 'organic' = "organic", 'conventional' = "conventional"
+)
+
+sampletype_labeller <- function(variable,value){
+  return(sampletype_names[value])
+}
+
+
+# check unique values for phylum
+unique(ps_RA_phyla_df$phylum)
+# [1] "Ascomycota"        "Basidiomycota"     "Glomeromycota"     "Mortierellomycota"
+# [5] "Rozellomycota"     "Other"  
+
+ps_RA_phyla_df$phylum <- as.factor(ps_RA_phyla_df$phylum)
+levels(ps_RA_phyla_df$phylum)
+ps_RA_phyla_df$phylum <- factor(ps_RA_phyla_df$phylum, levels = c("Other","Ascomycota", "Basidiomycota", "Glomeromycota", "Mortierellomycota", "Rozellomycota"))
+levels(ps_RA_phyla_df$phylum)
+
+#Create a plot
+phylumF  <- ggplot(ps_RA_phyla_df, aes(x = depth ,y = Abundance, fill = phylum)) + geom_bar(stat="identity", position="fill") + scale_fill_manual(values = cbbPalette) + facet_grid (cols = vars(sample_type), labeller=sampletype_labeller) + geom_bar(stat="identity", position="fill") + scale_fill_manual(values = cbbPalette) + theme(panel.border = element_rect(colour = "black", fill=NA, size=0.5)) + theme_cowplot() +
+  theme(axis.text = element_text(size=14),
+        axis.title = element_text(size=18),
+        legend.text = element_text(size=16),
+        legend.title = element_text(size=18),
+        legend.spacing.y = unit(0, 'cm'),
+        legend.key.size = unit(0.8, 'cm'),
+        title = element_text(size=18))+ theme(axis.text.x = element_text(angle = 45, hjust = 1)) + guides(fill = guide_legend(title="")) + theme(strip.text.x = element_text(size = 22)) +
+  ylab(label = "Relative abundance") + theme(legend.position="top") +
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.title.x = element_blank())
+
+phylumF
+```
+
+
+# D) Combine composition plots and heatmap figures
+
+## 1.1. Composition bar plots
+
+```{r fig.dim = c(10, 24)}
+library(ggplotify)
+
+
+left <- ggarrange(phylumF, classF , FG,
+                  labels = c("A", "B", "C"),
+                  ncol = 1, nrow = 3, heights = c(1.1, 1.5, 1.5))
+
+left
+```
+
+
+
+## 2. Combine Heatmaps
+
+```{r fig.dim = c(10, 24)}
+right <- ggarrange(p2, p3,
+                       labels = c("D", "E"),
+                       ncol = 1, nrow = 2, heights = c(2.7, 1.4))
+
+right
+
+```
+
+
+## 3. Combine composition and heatmap
+
+```{r fig.dim = c(10, 24)}
+figure <- ggarrange(left, right,
+                    ncol = 2, nrow = 1, heights = c(1, 1), widths = c(1, 1))
+
+figure
+
+```
+
+Saved with width 2200 and height 2600
+

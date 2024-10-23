@@ -1,0 +1,351 @@
+---
+title: "Untitled"
+author: "Laura_Hakkinen"
+date: "2024-10-04"
+output:
+  html_document:
+    self_contained: false
+---
+
+
+```{r}
+
+library('phyloseq')
+library("cowplot")
+library("dplyr")
+library("ggplot2")
+library("vegan")
+library("microbiome")
+library("tibble")
+library(stringr)
+library(reshape2)
+library(tidyr)
+
+setwd('C:\\Users\\lehakkin\\PhD\\Fungal_ITS_soil_vertical_profile')
+
+load("ps_FINAL")#ps
+ps
+
+meta <- meta(ps)
+
+```
+
+```{r}
+MyPalette <- c(forest = "#1167b1", meadow = "#fbc02d", organic = "#8a8a8a", conventional =  "#b71c1c")
+
+library("cowplot")
+
+```
+
+
+
+# Pinorg_mgkg
+
+```{r}
+Pinorg_mgkg <- meta %>%
+  group_by(sample_type, depth_numerical) %>%
+  summarise(mean = mean(Pinorg_mgkg, na.rm = TRUE)/1000, se = (sd(Pinorg_mgkg, na.rm = TRUE)/sqrt(length((Pinorg_mgkg))))/1000) %>%
+  ungroup() %>%
+  ggplot(aes(y=mean, depth_numerical, color=sample_type)) +
+  geom_line(linetype = "dashed") +
+  geom_point(size=2, position=position_dodge(1.5)) +
+  geom_errorbar(aes(ymin=mean-se, ymax=mean+se), width=.5, position=position_dodge(1.5)) + theme(plot.title = element_text(size = 20, hjust = 0.5)) + theme(panel.border = element_rect(colour = "black", fill=NA, size=0.5)) + theme_cowplot() +
+  theme(axis.text = element_text(size=10),
+        axis.title = element_text(size=14),
+        legend.text = element_text(size=12),
+        legend.title = element_text(size=16),
+        title = element_text(size=18)) +
+  scale_y_continuous(name="P-inorg (g/kg)") +
+  labs(x = NULL) + theme(legend.title = element_blank()) + scale_colour_manual(values = MyPalette) + scale_x_reverse(breaks = c(60, 35, 25, 15, 5), labels = c("40-80 cm", "30-40 cm", "20-30 cm", "10-20 cm", "0-10 cm")) + coord_flip()
+
+Pinorg_mgkg
+
+```
+
+# PH2O_mgkg
+
+```{r}
+PH2O_mgkg <- meta %>%
+  group_by(sample_type, depth_numerical) %>%
+  summarise(mean = mean(PH2O_mgkg, na.rm = TRUE), se = (sd(PH2O_mgkg, na.rm = TRUE)/sqrt(length((PH2O_mgkg))))) %>%
+  ungroup() %>%
+  ggplot(aes(y=mean, depth_numerical, color=sample_type)) +
+  geom_line(linetype = "dashed") +
+  geom_point(size=2, position=position_dodge(1.5)) +
+  geom_errorbar(aes(ymin=mean-se, ymax=mean+se), width=.5, position=position_dodge(1.5)) + theme(plot.title = element_text(size = 20, hjust = 0.5)) + theme(panel.border = element_rect(colour = "black", fill=NA, size=0.5)) + theme_cowplot() +
+  theme(axis.text = element_text(size=10),
+        axis.title = element_text(size=14),
+        legend.text = element_text(size=12),
+        legend.title = element_text(size=16),
+        title = element_text(size=18)) +
+  scale_y_continuous(name="P-H2O (mg/kg)") + labs(x = NULL) + theme(legend.title = element_blank()) + scale_colour_manual(values = MyPalette) + scale_x_reverse(breaks = c(60, 35, 25, 15, 5), labels = c("40-80 cm", "30-40 cm", "20-30 cm", "10-20 cm", "0-10 cm")) + coord_flip()
+
+PH2O_mgkg
+```
+
+# Alox_mmolkg
+
+```{r}
+Alox_mmolkg <- meta %>%
+  group_by(sample_type, depth_numerical) %>%
+  summarise(mean = mean(Alox_mmolkg, na.rm = TRUE), se = (sd(Alox_mmolkg, na.rm = TRUE)/sqrt(length((Alox_mmolkg))))) %>%
+  ungroup() %>%
+  ggplot(aes(y=mean, depth_numerical, color=sample_type)) +
+  geom_line(linetype = "dashed") +
+  geom_point(size=2, position=position_dodge(1.5)) +
+  geom_errorbar(aes(ymin=mean-se, ymax=mean+se), width=.5, position=position_dodge(1.5)) + theme(plot.title = element_text(size = 20, hjust = 0.5)) + theme(panel.border = element_rect(colour = "black", fill=NA, size=0.5)) + theme_cowplot() +
+  theme(axis.text = element_text(size=10),
+        axis.title = element_text(size=14),
+        legend.text = element_text(size=12),
+        legend.title = element_text(size=16),
+        title = element_text(size=18)) +
+  scale_y_continuous(name="Al-ox (mmol/kg)") + labs(x = NULL) + theme(legend.title = element_blank()) + scale_colour_manual(values = MyPalette) + scale_x_reverse(breaks = c(60, 35, 25, 15, 5), labels = c("40-80 cm", "30-40 cm", "20-30 cm", "10-20 cm", "0-10 cm")) + coord_flip()
+
+Alox_mmolkg
+```
+
+# Feox_mmolkg
+
+```{r}
+Feox_mmolkg <- meta %>%
+  group_by(sample_type, depth_numerical) %>%
+  summarise(mean = mean(Feox_mmolkg, na.rm = TRUE), se = (sd(Feox_mmolkg, na.rm = TRUE)/sqrt(length((Feox_mmolkg))))) %>%
+  ungroup() %>%
+  ggplot(aes(y=mean, depth_numerical, color=sample_type)) +
+  geom_line(linetype = "dashed") +
+  geom_point(size=2, position=position_dodge(1.5)) +
+  geom_errorbar(aes(ymin=mean-se, ymax=mean+se), width=.5, position=position_dodge(1.5)) + theme(plot.title = element_text(size = 20, hjust = 0.5)) + theme(panel.border = element_rect(colour = "black", fill=NA, size=0.5)) + theme_cowplot() +
+  theme(axis.text = element_text(size=10),
+        axis.title = element_text(size=14),
+        legend.text = element_text(size=12),
+        legend.title = element_text(size=16),
+        title = element_text(size=18)) +
+  scale_y_continuous(name="Fe-ox (mmol/kg)") + labs(x = NULL) + theme(legend.title = element_blank()) + scale_colour_manual(values = MyPalette) + scale_x_reverse(breaks = c(60, 35, 25, 15, 5), labels = c("40-80 cm", "30-40 cm", "20-30 cm", "10-20 cm", "0-10 cm")) + coord_flip()
+
+Feox_mmolkg
+```
+
+# pH_H2O
+
+```{r}
+pH_H2O <- meta %>%
+  group_by(sample_type, depth_numerical) %>%
+  summarise(mean = mean(pH_H2O, na.rm = TRUE), se = (sd(pH_H2O, na.rm = TRUE)/sqrt(length((pH_H2O))))) %>%
+  ungroup() %>%
+  ggplot(aes(y=mean, depth_numerical, color=sample_type)) +
+  geom_line(linetype = "dashed") +
+  geom_point(size=2, position=position_dodge(1.5)) +
+  geom_errorbar(aes(ymin=mean-se, ymax=mean+se), width=.5, position=position_dodge(1.5)) + theme(plot.title = element_text(size = 20, hjust = 0.5)) + theme(panel.border = element_rect(colour = "black", fill=NA, size=0.5)) + theme_cowplot() +
+  theme(axis.text = element_text(size=10),
+        axis.title = element_text(size=14),
+        legend.text = element_text(size=12),
+        legend.title = element_text(size=16),
+        title = element_text(size=18)) +
+  scale_y_continuous(name="pH") + labs(x = NULL) + theme(legend.title = element_blank()) + scale_colour_manual(values = MyPalette) + scale_x_reverse(breaks = c(60, 35, 25, 15, 5), labels = c("40-80 cm", "30-40 cm", "20-30 cm", "10-20 cm", "0-10 cm")) + coord_flip()
+
+pH_H2O
+```
+
+# C_g_per_kg
+
+```{r}
+C_g_per_kg <- meta %>%
+  group_by(sample_type, depth_numerical) %>%
+  summarise(mean = mean(C_g_per_kg, na.rm = TRUE), se = (sd(C_g_per_kg, na.rm = TRUE)/sqrt(length((C_g_per_kg))))) %>%
+  ungroup() %>%
+  ggplot(aes(y=mean, depth_numerical, color=sample_type)) +
+  geom_line(linetype = "dashed") +
+  geom_point(size=2, position=position_dodge(1.5)) +
+  geom_errorbar(aes(ymin=mean-se, ymax=mean+se), width=.5, position=position_dodge(1.5)) + theme(plot.title = element_text(size = 20, hjust = 0.5)) + theme(panel.border = element_rect(colour = "black", fill=NA, size=0.5)) + theme_cowplot() +
+  theme(axis.text = element_text(size=10),
+        axis.title = element_text(size=14),
+        legend.text = element_text(size=12),
+        legend.title = element_text(size=16),
+        title = element_text(size=18)) +
+  scale_y_continuous(name="C (g/kg)") + labs(x = NULL) + theme(legend.title = element_blank()) + scale_colour_manual(values = MyPalette) + scale_x_reverse(breaks = c(60, 35, 25, 15, 5), labels = c("40-80 cm", "30-40 cm", "20-30 cm", "10-20 cm", "0-10 cm")) + coord_flip()
+
+C_g_per_kg
+```
+
+# N_gkg
+
+```{r}
+N_gkg <- meta %>%
+  group_by(sample_type, depth_numerical) %>%
+  summarise(mean = mean(N_gkg, na.rm = TRUE), se = (sd(N_gkg, na.rm = TRUE)/sqrt(length((N_gkg))))) %>%
+  ungroup() %>%
+  ggplot(aes(y=mean, depth_numerical, color=sample_type)) +
+  geom_line(linetype = "dashed") +
+  geom_point(size=2, position=position_dodge(1.5)) +
+  geom_errorbar(aes(ymin=mean-se, ymax=mean+se), width=.5, position=position_dodge(1.5)) + theme(plot.title = element_text(size = 20, hjust = 0.5)) + theme(panel.border = element_rect(colour = "black", fill=NA, size=0.5)) + theme_cowplot() +
+  theme(axis.text = element_text(size=10),
+        axis.title = element_text(size=14),
+        legend.text = element_text(size=12),
+        legend.title = element_text(size=16),
+        title = element_text(size=18)) +
+  scale_y_continuous(name="N (g/kg)") + labs(x = NULL) + theme(legend.title = element_blank()) + scale_colour_manual(values = MyPalette) + scale_x_reverse(breaks = c(60, 35, 25, 15, 5), labels = c("40-80 cm", "30-40 cm", "20-30 cm", "10-20 cm", "0-10 cm")) + coord_flip()
+
+N_gkg
+```
+
+# TP_gkg
+
+```{r}
+TP_gkg <- meta %>%
+  group_by(sample_type, depth_numerical) %>%
+  summarise(mean = mean(TP_gkg, na.rm = TRUE), se = (sd(TP_gkg, na.rm = TRUE)/sqrt(length((TP_gkg))))) %>%
+  ungroup() %>%
+  ggplot(aes(y=mean, depth_numerical, color=sample_type)) +
+  geom_line(linetype = "dashed") +
+  geom_point(size=2, position=position_dodge(1.5)) +
+  geom_errorbar(aes(ymin=mean-se, ymax=mean+se), width=.5, position=position_dodge(1.5)) + theme(plot.title = element_text(size = 20, hjust = 0.5)) + theme(panel.border = element_rect(colour = "black", fill=NA, size=0.5)) + theme_cowplot() +
+  theme(axis.text = element_text(size=10),
+        axis.title = element_text(size=14),
+        legend.text = element_text(size=12),
+        legend.title = element_text(size=16),
+        title = element_text(size=18)) +
+  scale_y_continuous(name="P-tot (g/kg)") + labs(x = NULL) + theme(legend.title = element_blank()) + scale_colour_manual(values = MyPalette) + scale_x_reverse(breaks = c(60, 35, 25, 15, 5), labels = c("40-80 cm", "30-40 cm", "20-30 cm", "10-20 cm", "0-10 cm")) + coord_flip()
+
+TP_gkg
+```
+
+# Porg_mgkg
+
+```{r}
+Porg_mgkg <- meta %>%
+  group_by(sample_type, depth_numerical) %>%
+  summarise(mean = mean(Porg_mgkg, na.rm = TRUE)/1000, se = (sd(Porg_mgkg, na.rm = TRUE)/sqrt(length((Porg_mgkg))))/1000) %>%
+  ungroup() %>%
+  ggplot(aes(y=mean, depth_numerical, color=sample_type)) +
+  geom_line(linetype = "dashed") +
+  geom_point(size=2, position=position_dodge(1.5)) +
+  geom_errorbar(aes(ymin=mean-se, ymax=mean+se), width=.5, position=position_dodge(1.5)) + theme(plot.title = element_text(size = 20, hjust = 0.5)) + theme(panel.border = element_rect(colour = "black", fill=NA, size=0.5)) + theme_cowplot() +
+  theme(axis.text = element_text(size=10),
+        axis.title = element_text(size=14),
+        legend.text = element_text(size=12),
+        legend.title = element_text(size=16),
+        title = element_text(size=18)) +
+  scale_y_continuous(name="P-org (g/kg)") + labs(x = NULL) + theme(legend.title = element_blank()) + scale_colour_manual(values = MyPalette) + scale_x_reverse(breaks = c(60, 35, 25, 15, 5), labels = c("40-80 cm", "30-40 cm", "20-30 cm", "10-20 cm", "0-10 cm")) + coord_flip()
+
+Porg_mgkg
+```
+
+# DOC_mgkg
+
+```{r}
+DOC_mgkg <- meta %>%
+  group_by(sample_type, depth_numerical) %>%
+  summarise(mean = mean(DOC_mgkg, na.rm = TRUE)/1000, se = (sd(DOC_mgkg, na.rm = TRUE)/sqrt(length((DOC_mgkg))))/1000) %>%
+  ungroup() %>%
+  ggplot(aes(y=mean, depth_numerical, color=sample_type)) +
+  geom_line(linetype = "dashed") +
+  geom_point(size=2, position=position_dodge(1.5)) +
+  geom_errorbar(aes(ymin=mean-se, ymax=mean+se), width=.5, position=position_dodge(1.5)) + theme(plot.title = element_text(size = 20, hjust = 0.5)) + theme(panel.border = element_rect(colour = "black", fill=NA, size=0.5)) + theme_cowplot() +
+  theme(axis.text = element_text(size=10),
+        axis.title = element_text(size=14),
+        legend.text = element_text(size=12),
+        legend.title = element_text(size=16),
+        title = element_text(size=18)) +
+  scale_y_continuous(name="DOC (g/kg)") + labs(x = NULL) + theme(legend.title = element_blank()) + scale_colour_manual(values = MyPalette) + scale_x_reverse(breaks = c(60, 35, 25, 15, 5), labels = c("40-80 cm", "30-40 cm", "20-30 cm", "10-20 cm", "0-10 cm")) + coord_flip()
+
+DOC_mgkg
+```
+# C_per_N
+
+```{r}
+C_per_N <- meta %>%
+  group_by(sample_type, depth_numerical) %>%
+  summarise(mean = mean(C_per_N, na.rm = TRUE), se = (sd(C_per_N, na.rm = TRUE)/sqrt(length((C_per_N))))) %>%
+  ungroup() %>%
+  ggplot(aes(y=mean, depth_numerical, color=sample_type)) +
+  geom_line(linetype = "dashed") +
+  geom_point(size=2, position=position_dodge(1.5)) +
+  geom_errorbar(aes(ymin=mean-se, ymax=mean+se), width=.5, position=position_dodge(1.5)) + theme(plot.title = element_text(size = 20, hjust = 0.5)) + theme(panel.border = element_rect(colour = "black", fill=NA, size=0.5)) + theme_cowplot() +
+  theme(axis.text = element_text(size=10),
+        axis.title = element_text(size=14),
+        legend.text = element_text(size=12),
+        legend.title = element_text(size=16),
+        title = element_text(size=18)) +
+  scale_y_continuous(name="C/N") + labs(x = NULL) + theme(legend.title = element_blank()) + scale_colour_manual(values = MyPalette) + scale_x_reverse(breaks = c(60, 35, 25, 15, 5), labels = c("40-80 cm", "30-40 cm", "20-30 cm", "10-20 cm", "0-10 cm")) + coord_flip()
+
+C_per_N
+```
+
+# log_root
+
+```{r}
+log_root <- meta %>%
+  group_by(sample_type, depth_numerical) %>%
+  summarise(mean = mean(log_root, na.rm = TRUE), se = (sd(log_root, na.rm = TRUE)/sqrt(length((log_root))))) %>%
+  ungroup() %>%
+  ggplot(aes(y=mean, depth_numerical, color=sample_type)) +
+  geom_line(linetype = "dashed") +
+  geom_point(size=2, position=position_dodge(1.5)) +
+  geom_errorbar(aes(ymin=mean-se, ymax=mean+se), width=.5, position=position_dodge(1.5)) + theme(plot.title = element_text(size = 20, hjust = 0.5)) + theme(panel.border = element_rect(colour = "black", fill=NA, size=0.5)) + theme_cowplot() +
+  theme(axis.text = element_text(size=10),
+        axis.title = element_text(size=14),
+        legend.text = element_text(size=12),
+        legend.title = element_text(size=16),
+        title = element_text(size=18)) +
+  scale_y_continuous(name="log10 root biomass (g/kg)") + labs(x = NULL) + theme(legend.title = element_blank()) + scale_colour_manual(values = MyPalette) + scale_x_reverse(breaks = c(60, 35, 25, 15, 5), labels = c("40-80 cm", "30-40 cm", "20-30 cm", "10-20 cm", "0-10 cm")) + coord_flip()
+
+log_root
+```
+
+# C_per_N
+
+```{r}
+nc <- meta %>%
+  group_by(sample_type, depth_numerical) %>%
+  summarise(mean = mean(C_per_N, na.rm = TRUE), se = (sd(C_per_N, na.rm = TRUE)/sqrt(length((C_per_N))))) %>%
+  ungroup() %>%
+  ggplot(aes(y=mean, depth_numerical, color=sample_type)) +
+  geom_line(linetype = "dashed") +
+  geom_point(size=2, position=position_dodge(1.5)) +
+  geom_errorbar(aes(ymin=mean-se, ymax=mean+se), width=.5, position=position_dodge(1.5)) + theme(plot.title = element_text(size = 20, hjust = 0.5)) + theme(panel.border = element_rect(colour = "black", fill=NA, size=0.5)) + theme_cowplot() +
+  theme(axis.text = element_text(size=10),
+        axis.title = element_text(size=14),
+        legend.text = element_text(size=12),
+        legend.title = element_text(size=16),
+        title = element_text(size=18)) +
+  scale_y_continuous(name="C/N") + labs(x = NULL) + theme(legend.title = element_blank()) + scale_colour_manual(values = MyPalette) + scale_x_reverse(breaks = c(60, 35, 25, 15, 5), labels = c("40-80 cm", "30-40 cm", "20-30 cm", "10-20 cm", "0-10 cm")) + coord_flip()
+
+nc
+```
+
+# TP_gkg
+
+```{r}
+p <- meta %>%
+  group_by(sample_type, depth_numerical) %>%
+  summarise(mean = mean(TP_gkg, na.rm = TRUE), se = (sd(TP_gkg, na.rm = TRUE)/sqrt(length((TP_gkg))))) %>%
+  ungroup() %>%
+  ggplot(aes(y=mean, depth_numerical, color=sample_type)) +
+  geom_line(linetype = "dashed") +
+  geom_point(size=2, position=position_dodge(1.5)) +
+  geom_errorbar(aes(ymin=mean-se, ymax=mean+se), width=.5, position=position_dodge(1.5)) + theme(plot.title = element_text(size = 20, hjust = 0.5)) + theme(panel.border = element_rect(colour = "black", fill=NA, size=0.5)) + theme_cowplot() +
+  theme(axis.text = element_text(size=10),
+        axis.title = element_text(size=14),
+        legend.text = element_text(size=12),
+        legend.title = element_text(size=16),
+        title = element_text(size=18)) +
+  scale_y_continuous(name="P (g/kg)") + labs(x = NULL) + theme(legend.title = element_blank()) + scale_colour_manual(values = MyPalette) + scale_x_reverse(breaks = c(60, 35, 25, 15, 5), labels = c("40-80 cm", "30-40 cm", "20-30 cm", "10-20 cm", "0-10 cm")) + coord_flip()
+p
+
+```
+
+
+# combine figures
+
+
+```{r fig.dim = c(14, 14)}
+library("ggpubr")
+
+figure <- ggarrange(C_g_per_kg, N_gkg + rremove("ylab") + rremove("y.text") + rremove("y.axis") + rremove("y.ticks"), C_per_N + rremove("ylab") + rremove("y.text") + rremove("y.axis") + rremove("y.ticks"), DOC_mgkg + rremove("ylab") + rremove("y.text") + rremove("y.axis") + rremove("y.ticks"), TP_gkg, Porg_mgkg + rremove("ylab") + rremove("y.text") + rremove("y.axis") + rremove("y.ticks"), Pinorg_mgkg + rremove("ylab") + rremove("y.text") + rremove("y.axis") + rremove("y.ticks"), PH2O_mgkg + rremove("ylab") + rremove("y.text") + rremove("y.axis") + rremove("y.ticks"), pH_H2O, Feox_mmolkg + rremove("ylab") + rremove("y.text") + rremove("y.axis") + rremove("y.ticks"), Alox_mmolkg + rremove("ylab") + rremove("y.text") + rremove("y.axis") + rremove("y.ticks"), log_root + rremove("ylab") + rremove("y.text") + rremove("y.axis") + rremove("y.ticks"),
+                    labels = NULL,
+                    ncol = 4, nrow = 3, common.legend = TRUE, legend="right")
+figure
+
+```
+
+

@@ -1,0 +1,602 @@
+---
+title: "Untitled"
+author: "Laura_Hakkinen"
+date: "2024-09-24"
+output: html_document
+---
+
+
+
+# 1. Upload plant diversity data
+
+```{r}
+library("cowplot")
+library("dplyr")
+library("ggplot2")
+library("vegan")
+library("tibble")
+
+plant.div <- read.csv2("C:\\Users\\lehakkin\\PhD\\Fungal_ITS_soil_vertical_profile\\Plant_diversity_Yoni_2011_2012.csv", dec = ".")
+
+plant.div$Year <- as.factor(plant.div$Year)
+```
+
+
+# 2. Non-crop vegetation cover (%)
+
+## 2.1. Year 2011
+
+Let's only include organic and conventional in the non-crop coverage analysis as meadow does not have a crop
+
+```{r}
+## first lets test if variances are equal so we know if use ANOVA or Kruskal test:
+library(car)
+
+df <- subset(plant.div, Year==2011)
+df <- subset(df, Treatment!="meadow")
+
+# Using leveneTest()
+result = leveneTest(non_crop_cover ~ Treatment, df)
+# print the result
+print(result)
+
+# high p-value means that variances are similar and that we can do ANOVA
+
+# Shapiro-Wilk’s method is widely recommended for normality test and it provides better power than K-S. It is based on the correlation between the data and the corresponding normal scores.
+
+shapiro.test(df$non_crop_cover)
+
+# high p value means that data is normally distributed
+
+res.aov <- aov(non_crop_cover ~ Treatment, data = df)
+summary(res.aov)
+
+# As the ANOVA test is significant, we can compute Tukey HSD
+TukeyHSD(res.aov)
+```
+
+
+Non-crop vegetation cover in 2011 is significantly different between conventional and organic
+
+
+## 2.2. Year 2012
+
+```{r}
+df <- subset(plant.div, Year==2012)
+df <- subset(df, Treatment!="meadow")
+
+# Using leveneTest()
+result = leveneTest(non_crop_cover ~ Treatment, df)
+# print the result
+print(result)
+
+# high p-value means that variances are similar and that we can do ANOVA
+
+# Shapiro-Wilk’s method is widely recommended for normality test and it provides better power than K-S. It is based on the correlation between the data and the corresponding normal scores.
+
+shapiro.test(df$non_crop_cover)
+
+# low p value means that data is not normally distributed, but let's still do ANOVA
+
+# analysis of variance takes the same form as the usual models you'd see in R
+# response ~ dependent, data = environmental grouping
+
+res.aov <- aov(non_crop_cover ~ Treatment, data = df)
+summary(res.aov)
+
+# As the ANOVA test is significant, we can compute Tukey HSD
+TukeyHSD(res.aov)
+```
+
+Non-crop vegetation cover in 2012 is significantly different between conventional and organic
+
+## 2.3. Plot
+
+```{r}
+pal <- c(meadow = "#fbc02d", organic = "#8a8a8a", conventional =  "#b71c1c")
+
+df <- subset(plant.div, Treatment!="meadow")
+df <- droplevels(df)
+
+df$Treatment <- factor(df$Treatment, levels = c("meadow", "organic", "conventional"))
+
+plot_non_crop_cover <- ggplot(df, aes(x = Treatment, y = non_crop_cover, fill = Treatment)) + facet_grid (cols = vars(Year)) +
+  geom_boxplot() +
+  scale_fill_manual(values = pal) +
+  theme(legend.position = "none",
+        plot.background = element_rect("white"),
+        panel.background = element_rect("white"),
+        panel.grid = element_line("grey90"),
+        axis.line = element_line("gray25"),
+        axis.text.y = element_text(size = 12, color = "gray25"),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.title = element_text(color = "gray25"),
+        legend.text = element_text(size = 12)) + 
+  labs(x = NULL,
+       y = "Non-crop vegetation cover")
+plot_non_crop_cover
+
+```
+
+## 2.4. Add CLD letters
+
+### 2.4.1. Year 2011
+
+```{r}
+# subset the Year
+year11 <- plant.div[plant.div$Year == "2011",]
+
+year11 <- subset(year11, Treatment!="meadow")
+year11 <- droplevels(year11)
+
+year11$Treatment <- factor(year11$Treatment, levels = c("meadow", "organic", "conventional"))
+
+# Plot subset
+plot_non_crop_cover11 <- ggplot(year11, aes(x = Treatment, y = non_crop_cover, fill = Treatment)) + facet_grid (cols = vars(Year)) +
+  geom_boxplot() +
+  scale_fill_manual(values = pal) +
+  theme(legend.position = "none",
+        plot.background = element_rect("white"),
+        panel.background = element_rect("white"),
+        panel.grid = element_line("grey90"),
+        axis.line = element_line("gray25"),
+        axis.text.y = element_text(size = 12, color = "gray25"),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.title = element_text(color = "gray25"),
+        legend.text = element_text(size = 12)) + 
+  labs(x = NULL,
+       y = "Non-crop vegetation cover")
+
+# Annotate this plot
+plot_non_crop_cover11 <- plot_non_crop_cover11 +
+  geom_text(x = 1.5,  y = 94, 
+           label = "**", 
+           colour = "black") +
+  geom_segment(x = 0.8, xend = 0.8, 
+           y = 92, yend = 93,
+           colour = "black") +
+  geom_segment(x = 2.2, xend = 2.2, 
+           y = 92, yend = 93,
+           colour = "black") +
+  geom_segment(x = 0.8, xend = 2.2, 
+           y = 93, yend = 93,
+           colour = "black") + ylim(0, 98)
+
+plot_non_crop_cover11
+
+```
+
+### 2.4.2. Year 2012
+
+```{r}
+# subset the Year
+year12 <- plant.div[plant.div$Year == "2012",]
+
+year12 <- subset(year12, Treatment!="meadow")
+year12 <- droplevels(year12)
+
+# Plot subset
+plot_non_crop_cover12 <- ggplot(year12, aes(x = Treatment, y = non_crop_cover, fill = Treatment)) + facet_grid (cols = vars(Year)) +
+  geom_boxplot() +
+  scale_fill_manual(values = pal) +
+  theme(legend.position = "none",
+        plot.background = element_rect("white"),
+        panel.background = element_rect("white"),
+        panel.grid = element_line("grey90"),
+        axis.line = element_line("gray25"),
+        axis.text.y = element_text(size = 12, color = "gray25"),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.title = element_text(color = "gray25"),
+        legend.text = element_text(size = 12)) + 
+  labs(x = NULL,
+       y = "Non-crop vegetation cover")
+
+
+# Annotate this plot
+plot_non_crop_cover12 <- plot_non_crop_cover12 +
+  geom_text(x = 1.5,  y = 94, 
+           label = "*", 
+           colour = "black") +
+  geom_segment(x = 0.8, xend = 0.8, 
+           y = 92, yend = 93,
+           colour = "black") +
+  geom_segment(x = 2.2, xend = 2.2, 
+           y = 92, yend = 93,
+           colour = "black") +
+  geom_segment(x = 0.8, xend = 2.2, 
+           y = 93, yend = 93,
+           colour = "black") + ylim(0, 98)
+
+plot_non_crop_cover12
+```
+
+
+```{r}
+library(ggpubr)
+
+plot_non_crop_cover <- ggarrange(plot_non_crop_cover11, plot_non_crop_cover12 + rremove("ylab") + rremove("y.text") + rremove("y.axis") + rremove("y.ticks"),
+                     ncol = 2, nrow = 1, widths = c(1,0.8))
+
+plot_non_crop_cover
+
+```
+
+
+# 3. Richness
+
+## 3.1. year 2011
+
+```{r}
+
+df <- subset(plant.div, Year==2011)
+
+# Using leveneTest()
+result = leveneTest(richness ~ Treatment, df)
+# print the result
+print(result)
+
+# high p-value means that variances are similar and that we can do ANOVA
+
+# Shapiro-Wilk’s method is widely recommended for normality test and it provides better power than K-S. It is based on the correlation between the data and the corresponding normal scores.
+
+shapiro.test(df$richness)
+
+# high p value means that data is normally distributed
+
+# analysis of variance takes the same form as the usual models you'd see in R
+# response ~ dependent, data = environmental grouping
+
+res.aov <- aov(richness ~ Treatment, data = df)
+summary(res.aov)
+
+# As the ANOVA test is significant, we can compute Tukey HSD
+TukeyHSD(res.aov)
+```
+
+
+Plant richness in 2011 does not significantly differ between any treatments
+
+## 3.2. Year 2012
+
+```{r}
+
+df <- subset(plant.div, Year==2012)
+
+# Using leveneTest()
+result = leveneTest(richness ~ Treatment, df)
+# print the result
+print(result)
+
+# high p-value means that variances are similar and that we can do ANOVA
+
+# Shapiro-Wilk’s method is widely recommended for normality test and it provides better power than K-S. It is based on the correlation between the data and the corresponding normal scores.
+
+shapiro.test(df$richness)
+
+# high p value means that data is normally distributed
+
+# analysis of variance takes the same form as the usual models you'd see in R
+# response ~ dependent, data = environmental grouping
+
+res.aov <- aov(richness ~ Treatment, data = df)
+summary(res.aov)
+
+# As the ANOVA test is significant, we can compute Tukey HSD
+TukeyHSD(res.aov)
+```
+
+
+Plant richness in 2012 does significantly differs between conventional and organic only
+
+## 3.3 Plot
+
+```{r}
+pal <- c(meadow = "#fbc02d", organic = "#8a8a8a", conventional =  "#b71c1c")
+
+plant.div$Treatment <- factor(plant.div$Treatment, levels = c("meadow", "organic", "conventional"))
+
+plot_rich <- ggplot(plant.div, aes(x = Treatment, y = richness, fill = Treatment)) + facet_grid (cols = vars(Year)) +
+  geom_boxplot() +
+  scale_fill_manual(values = pal) + theme(legend.position = "none",
+        plot.background = element_rect("white"),
+        panel.background = element_rect("white"),
+        panel.grid = element_line("grey90"),
+        axis.line = element_line("gray25"),
+        axis.text.y = element_text(size = 12, color = "gray25"),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.title = element_text(color = "gray25"),
+        legend.text = element_text(size = 12)) + 
+  labs(x = NULL,
+       y = "Plant richness")
+
+plot_rich
+```
+
+## 3.4. Add CLD letters
+
+### 3.4.1. Year 2011
+
+```{r}
+# subset the Year
+year11 <- plant.div[plant.div$Year == "2011",]
+
+# Plot subset
+plot_rich11 <- ggplot(year11, aes(x = Treatment, y = richness, fill = Treatment)) + facet_grid (cols = vars(Year)) +
+  geom_boxplot() +
+  scale_fill_manual(values = pal) +
+  theme(legend.position = "none",
+        plot.background = element_rect("white"),
+        panel.background = element_rect("white"),
+        panel.grid = element_line("grey90"),
+        axis.line = element_line("gray25"),
+        axis.text.y = element_text(size = 12, color = "gray25"),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.title = element_text(color = "gray25"),
+        legend.text = element_text(size = 12)) + 
+  labs(x = NULL,
+       y = "Plant richness")
+
+# Annotate this plot
+plot_rich11 <- plot_rich11 +
+  geom_text(x = 1,  y = 34, 
+           label = "(ns.)")  + ylim(10, 35)
+plot_rich11
+```
+
+### 3.4.2. Year 2012
+
+```{r}
+# subset the Year
+year12 <- plant.div[plant.div$Year == "2012",]
+
+# Plot subset
+plot_rich12 <- ggplot(year12, aes(x = Treatment, y = richness, fill = Treatment)) + facet_grid (cols = vars(Year)) +
+  geom_boxplot() +
+  scale_fill_manual(values = pal) +
+  theme(legend.position = "none",
+        plot.background = element_rect("white"),
+        panel.background = element_rect("white"),
+        panel.grid = element_line("grey90"),
+        axis.line = element_line("gray25"),
+        axis.text.y = element_text(size = 12, color = "gray25"),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.title = element_text(color = "gray25"),
+        legend.text = element_text(size = 12)) + 
+  labs(x = NULL,
+       y = "Plant richness")
+
+
+# Annotate this plot
+plot_rich12 <- plot_rich12 +
+  geom_text(x = 2.5,  y = 34, 
+           label = "*", 
+           colour = "black") +
+  geom_segment(x = 1.8, xend = 1.8, 
+           y = 32, yend = 33,
+           colour = "black") +
+  geom_segment(x = 3.2, xend = 3.2, 
+           y = 32, yend = 33,
+           colour = "black") +
+  geom_segment(x = 1.8, xend = 3.2, 
+           y = 33, yend = 33,
+           colour = "black") + ylim(10, 35)
+
+plot_rich12
+```
+
+
+### 3.4.3. Combine figures
+
+```{r}
+library(ggpubr)
+
+plot_rich <- ggarrange(plot_rich11, plot_rich12 + rremove("ylab") + rremove("y.text") + rremove("y.axis") + rremove("y.ticks"),
+                     ncol = 2, nrow = 1, widths = c(1,0.75))
+
+plot_rich
+
+```
+
+
+# 4. Shannon diversity
+
+## 4.1. Year 2011
+
+```{r}
+
+df <- subset(plant.div, Year==2011)
+
+# Using leveneTest()
+result = leveneTest(Shannon ~ Treatment, df)
+# print the result
+print(result)
+
+# high p-value means that variances are similar and that we can do ANOVA
+
+# Shapiro-Wilk’s method is widely recommended for normality test and it provides better power than K-S. It is based on the correlation between the data and the corresponding normal scores.
+
+shapiro.test(df$Shannon)
+
+# high p value means that data is normally distributed
+
+# analysis of variance takes the same form as the usual models you'd see in R
+# response ~ dependent, data = environmental grouping
+
+res.aov <- aov(Shannon ~ Treatment, data = df)
+summary(res.aov)
+
+# As the ANOVA test is significant, we can compute Tukey HSD
+TukeyHSD(res.aov)
+```
+
+Shannon in 2011 does not significantly differ between any treatments
+
+
+## 4.2. Year 2012
+
+```{r}
+
+df <- subset(plant.div, Year==2012)
+
+# Using leveneTest()
+result = leveneTest(Shannon ~ Treatment, df)
+# print the result
+print(result)
+
+# high p-value means that variances are similar and that we can do ANOVA
+
+# Shapiro-Wilk’s method is widely recommended for normality test and it provides better power than K-S. It is based on the correlation between the data and the corresponding normal scores.
+
+shapiro.test(df$Shannon)
+
+# high p value means that data is normally distributed
+
+# analysis of variance takes the same form as the usual models you'd see in R
+# response ~ dependent, data = environmental grouping
+
+res.aov <- aov(Shannon ~ Treatment, data = df)
+summary(res.aov)
+
+# As the ANOVA test is significant, we can compute Tukey HSD
+TukeyHSD(res.aov)
+```
+
+Shannon in 2012 does not significantly differ between any treatments
+
+## 4.3. Plot
+
+```{r}
+pal <- c(meadow = "#fbc02d", organic = "#8a8a8a", conventional =  "#b71c1c")
+
+plant.div$Treatment <- factor(plant.div$Treatment, levels = c("meadow", "organic", "conventional"))
+
+plot_Shannon <- ggplot(plant.div, aes(x = Treatment, y = Shannon, fill = Treatment)) + facet_grid (cols = vars(Year)) +
+  geom_boxplot() +
+  scale_fill_manual(values = pal) +
+  theme(legend.position = "none",
+        plot.background = element_rect("white"),
+        panel.background = element_rect("white"),
+        panel.grid = element_line("grey90"),
+        axis.line = element_line("gray25"),
+        axis.text.y = element_text(size = 12, color = "gray25"),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.title = element_text(color = "gray25"),
+        legend.text = element_text(size = 12)) + 
+  labs(x = NULL,
+       y = "Plant Shannon diversity")
+
+plot_Shannon
+```
+
+## 4.4. Add CLD letters
+
+### 4.4.1. Year 2011
+
+```{r}
+# subset the Year
+year11 <- plant.div[plant.div$Year == "2011",]
+
+# Plot subset
+plot_Shannon11 <- ggplot(year11, aes(x = Treatment, y = Shannon, fill = Treatment)) + facet_grid (cols = vars(Year)) +
+  geom_boxplot() +
+  scale_fill_manual(values = pal) +
+  theme(legend.position = "none",
+        plot.background = element_rect("white"),
+        panel.background = element_rect("white"),
+        panel.grid = element_line("grey90"),
+        axis.line = element_line("gray25"),
+        axis.text.y = element_text(size = 12, color = "gray25"),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.title = element_text(color = "gray25"),
+        legend.text = element_text(size = 12)) + 
+  labs(x = NULL,
+       y = "Plant Shannon diversity")
+
+# Annotate this plot
+plot_Shannon11 <- plot_Shannon11 +
+  geom_text(x = 1,  y = 2.9, 
+           label = "(ns.)")  + ylim(1.5, 3)
+plot_Shannon11
+```
+
+### 4.4.2. Year 2012
+
+```{r}
+# subset the Year
+year12 <- plant.div[plant.div$Year == "2012",]
+
+# Plot subset
+plot_Shannon12 <- ggplot(year12, aes(x = Treatment, y = Shannon, fill = Treatment)) + facet_grid (cols = vars(Year)) +
+  geom_boxplot() +
+  scale_fill_manual(values = pal) +
+  theme(legend.position = "right",
+        legend.title = element_blank(),
+        plot.background = element_rect("white"),
+        panel.background = element_rect("white"),
+        panel.grid = element_line("grey90"),
+        axis.line = element_line("gray25"),
+        axis.text.y = element_text(size = 12, color = "gray25"),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.title = element_text(color = "gray25"),
+        legend.text = element_text(size = 12)) + 
+  labs(x = NULL,
+       y = "Plant Shannon diversity")
+
+
+
+# Annotate this plot
+plot_Shannon12 <- plot_Shannon12 +
+  geom_text(x = 1,  y = 2.9, 
+           label = "(ns.)")  + ylim(1.5, 3)
+plot_Shannon12
+```
+
+### 4.4.3. Combine figures
+
+```{r}
+library(ggpubr)
+
+plot_Shannon <- ggarrange(plot_Shannon11, plot_Shannon12 + rremove("ylab") + rremove("y.text") + rremove("y.axis") + rremove("y.ticks"),
+                     ncol = 2, nrow = 1, widths = c(1,1.63))
+
+plot_Shannon
+
+```
+
+
+
+
+
+
+# 5. Combine the figures
+
+## 5.1. With Non-crop vegetation cover
+
+```{r fig.dim = c(14, 6)}
+library(ggpubr)
+
+fig <- ggarrange(plot_non_crop_cover, plot_rich, plot_Shannon,
+                     ncol = 3, nrow = 1, widths = c(3,4,6))
+
+fig
+
+```
+
+## 5.2. Without Non-crop vegetation cover
+
+```{r fig.dim = c(14, 6)}
+fig <- ggarrange(plot_rich, plot_Shannon,
+                     ncol = 3, nrow = 1, widths = c(2, 3.1))
+
+fig
+
+```
