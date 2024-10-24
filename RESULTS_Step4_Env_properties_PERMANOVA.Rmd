@@ -5,6 +5,7 @@ date: "2024-01-18"
 output: html_document
 ---
 
+
 # RESULTS STEP 4: PERMANOVA analysis with soil properties
 
 PERMANOVA with soil properties will be done with only meadow, organic and conventional treatments excluding forest

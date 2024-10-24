@@ -8,6 +8,7 @@ output:
   pdf_document: default
 ---
 
+
 # RESULTS STEP 3: PERMANOVA analysis at OTU level
 
 Here I do permutational analysis of variance or PERMANOVA. With PERMANOVA, I want to check how much the main treatment factors, management type (here sample_type) and soil layer (depth), are responsible for differences in fungal communities. In addition, I will check how soil layers differ within management type (**4.5**) and in which soil layers we see a management type effect (**4.6**)

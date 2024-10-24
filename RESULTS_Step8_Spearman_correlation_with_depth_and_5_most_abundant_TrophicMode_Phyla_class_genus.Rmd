@@ -5,6 +5,7 @@ date: "2024-06-04"
 output: html_document
 ---
 
+
 # RESULTS STEPS 8: Spearman correlations of depth with 5 most abundant phyla, classes, genera and trophic mode
 
 **Note** all correlations are done without forest!

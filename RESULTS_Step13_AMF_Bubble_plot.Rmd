@@ -5,6 +5,7 @@ date: "2024-06-18"
 output: html_document
 ---
 
+
 # RESULTS STEP 13: AMF bubble plot
 
 # 1. Load data and add soil_type_depth

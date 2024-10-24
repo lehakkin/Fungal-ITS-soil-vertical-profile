@@ -5,6 +5,7 @@ date: "2024-05-27"
 output: html_document
 ---
 
+
 # RESULTS STEP 1: VENN diagrams and number of OTUs
 
 Here, I will check the number of reads and OTUs and construct venn-diagrams for sample types (or management type) and soil layers. 

@@ -25,7 +25,6 @@ setwd('C:\\Users\\lehakkin\\PhD\\Fungal_ITS_soil_vertical_profile')
 
 load(file = 'ps_FG_with_NAs')#ps_FG
 ps_FG
-
 ```
 
 

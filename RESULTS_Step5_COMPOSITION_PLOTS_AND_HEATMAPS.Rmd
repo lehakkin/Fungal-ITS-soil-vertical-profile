@@ -116,8 +116,6 @@ length(all_top20_unique)
 
 all_top20_unique_df <- as.data.frame(all_top20_unique)
 
-#write.csv2(all_top20_unique_df, file = "C:\\Users\\lehakkin\\PhD\\Fungal_ITS_soil_vertical_profile\\Heatmap_all_top20_unique_with_unclassified_df.csv", row.names = FALSE)
-
 ```
 
 
@@ -131,10 +129,8 @@ ps_RA_nf_genus <- aggregate_rare(ps_RA_nf, level = "genus", detection = 0/140, p
 ps_RA_nf_genus_pruned <- prune_taxa(all_top20_unique, ps_RA_nf_genus)
 ps_RA_nf_genus_pruned
 
-setwd('C:\\Users\\lehakkin\\PhD\\Fungal_ITS_soil_vertical_profile')
-
 ps_genus_nf_HETAMAP <- ps_RA_nf_genus_pruned
-#save(ps_genus_nf_HETAMAP, file='ps_genus_nf_HETAMAP_all_top20_unclassified_included')
+
 ```
 
 
@@ -748,8 +744,6 @@ all.pvals <- rbind(pval.list_df1, pval.list_df2, pval.list_df3, pval.list_df4, p
 
 all.sig.pvals <- all.pvals[all.pvals$adj_p <= 0.05, ]   
 
-#write.csv2(all.sig.pvals, file = "C:\\Users\\lehakkin\\PhD\\Fungal_ITS_soil_vertical_profile\\HEATMAP_NO_CLUSTERS_Including_Unclassified_sig_wilcox_p_values.csv", row.names = FALSE)
-
 all.sig.genus <- unique(all.sig.pvals$genus)
 length(all.sig.genus)
 
@@ -775,8 +769,6 @@ x <- df %>%
   summarise(mean = mean(Abundance, na.rm = TRUE), se = (sd(Abundance, na.rm = TRUE)/sqrt(length((Abundance)))))
 
 x
-
-#write.csv2(x, file = "V\\HEATMAP_sig_GENERA_NO_CLUSTERS_Including_Unclassified_mean_and_se.csv", row.names = FALSE)
 
 ```
 
@@ -1072,31 +1064,21 @@ unique(FG_tax_table$FUNGuild)
 ```
 
 
-### 13.1.2. Save ps_FG for HEATMAP
+### 13.1.2. Make ps_FG for HEATMAP
 
 
 ```{r}
-setwd('C:\\Users\\lehakkin\\PhD\\Fungal_ITS_soil_vertical_profile')
-
-load('ps_FINAL')
 
 ps_FG_HEATMAP_no_clusters <- phyloseq(otu_table(ps), tax_table(as.matrix(FG_tax_table)), sample_data(ps))
 ps_FG_HEATMAP_no_clusters
 
 
-#save(ps_FG_HEATMAP_no_clusters, file = 'ps_FG_for_HEATMAP_no_clusters_significant_Including_Unclassified')
-
 ```
 
 
-### 13.1.3. START HERE FOR FIGURE: Load everything needed
+### 13.1.3. Make FIGURE
 
 ```{r}
-setwd('C:\\Users\\lehakkin\\PhD\\Fungal_ITS_soil_vertical_profile')
-
-#load('ps_FINAL')
-ps
-
 ps_RA <- transform(ps, "compositional")
 
 # Pick relative abundances (compositional) and sample metadata 
@@ -1113,19 +1095,15 @@ prev0 = apply(X = otu_table(ps_RA_nf),
 ps_RA_nf = prune_taxa((prev0 > 0), ps_RA_nf)
 ps_RA_nf
 
-all.sig.pvals <- read.csv2("HEATMAP_NO_CLUSTERS_Including_Unclassified_sig_wilcox_p_values.csv")
 
 all.sig.genus <- unique(all.sig.pvals$genus)
 length(all.sig.genus)
 
-#load('ps_FG_for_HEATMAP_no_clusters_significant_Including_Unclassified')#ps_FG_HEATMAP_no_clusters
 
 # first aggregate to genus
 ps_RA_nf_genus <- aggregate_rare(ps_RA_nf, level = "genus", detection = 0/140, prevalence = 0/100)
 
-#all_top20_unique <- read.csv2("C:\\Users\\lehakkin\\PhD\\Fungal_ITS_soil_vertical_profile\\Heatmap_all_top20_unique_with_unclassified_df.csv")
-
-all_top20_unique <- all_top20_unique$all_top20_unique
+all_top20_unique <- all_top20_unique_df$all_top20_unique
 
 # filter by taxa name
 ps_RA_nf_genus_pruned <- prune_taxa(all_top20_unique, ps_RA_nf_genus)
@@ -1135,6 +1113,7 @@ ps_RA_nf_genus_pruned
 ps_RA_nf_genus_pruned_sig <- prune_taxa(all.sig.genus, ps_RA_nf_genus_pruned)
 ps_Heatmap <- ps_RA_nf_genus_pruned_sig
 ps_Heatmap
+
 ```
 
 
@@ -1413,8 +1392,6 @@ x <- df %>%
 
 x
 
-#write.csv2(x, file = "C:\\Users\\lehakkin\\PhD\\Fungal_ITS_soil_vertical_profile\\HEATMAP_sig_GENERA_mean_and_se_FOREST_ONLY_all_10_most_abund_unclassified_included.csv", row.names = FALSE)
-
 ```
 
 
@@ -1430,7 +1407,7 @@ I need to make a separate funguild phyloseq for heatmap, where I have only the g
 
 
 ```{r}
-setwd('V\\R_ITS_yoni\\Analyses_final\\RE_ANNOTATION_2024')
+setwd('C:\\Users\\lehakkin\\PhD\\Fungal_ITS_soil_vertical_profile')
 
 FG <- read.csv2("FUNGuild_31_05_2024.csv")
 
@@ -1713,10 +1690,6 @@ unique(FG_tax_table$FUNGuild)
 
 
 ```{r}
-#setwd('C:\\Users\\lehakkin\\PhD\\Fungal_ITS_soil_vertical_profile')
-
-#load('ps_FINAL')
-
 ps_FG_HEATMAP_no_clusters <- phyloseq(otu_table(ps), tax_table(as.matrix(FG_tax_table)), sample_data(ps))
 ps_FG_HEATMAP_no_clusters
 
@@ -2177,7 +2150,7 @@ right
 
 ## 3. Combine composition and heatmap
 
-```{r fig.dim = c(10, 24)}
+```{r fig.dim = c(18, 24)}
 figure <- ggarrange(left, right,
                     ncol = 2, nrow = 1, heights = c(1, 1), widths = c(1, 1))
 

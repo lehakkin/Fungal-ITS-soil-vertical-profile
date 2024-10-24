@@ -5,8 +5,6 @@ date: "2024-09-24"
 output: html_document
 ---
 
-
-
 # 1. Upload plant diversity data
 
 ```{r}

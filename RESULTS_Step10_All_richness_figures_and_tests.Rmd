@@ -8,7 +8,6 @@ output: html_document
 # RESULTS STEP 10: Richness figures and statistical testing 
 
 ```{r}
-
 library("ggpubr")
 library('phyloseq')
 library("cowplot")
@@ -31,7 +30,6 @@ load('ps_FINAL')
 ps
 
 meta <- meta(ps)
-
 ```
 
 # 1. Calculate FUNGuild richnesses

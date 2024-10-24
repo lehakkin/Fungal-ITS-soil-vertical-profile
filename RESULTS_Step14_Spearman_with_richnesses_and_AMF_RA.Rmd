@@ -5,6 +5,7 @@ date: "2024-06-19"
 output: html_document
 ---
 
+
 # RESULTS STEP 14: Spearman correlations with soil properties and fungal and AMF richness as well as with AMF relative abundance
 
 Simple spearman rank correlation with richness and env. variables are done **WITHOUT** forest because forest soil is so different environment compared to meadow, organic and conventional soils

@@ -5,7 +5,6 @@ date: "2024-06-05"
 output: html_document
 ---
 
-
 # RESULTS STEP 9: Calculate the average number of reads and OTUs and the total number of OTUs in each soil layer 
 
 ```{r}

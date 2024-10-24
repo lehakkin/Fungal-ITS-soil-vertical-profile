@@ -117,13 +117,4 @@ df_test
 ```
 
 
-# save the table
-
-```{r}
-#setwd('C:\\Users\\lehakkin\\PhD\\Fungal_ITS_soil_vertical_profile')
-
-#write.csv2(df_test, file = "META_tests_results.csv")
-```
-
-
 

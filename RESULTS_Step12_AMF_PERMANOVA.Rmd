@@ -5,6 +5,7 @@ date: "2024-06-18"
 output: html_document
 ---
 
+
 # RESULTS STEP 12: AMF PERMANOVA
 
 AMF PERMANOVA will be done at genus level, because the PERMANOVA is used to support the AMF bubble plot in **STEP 13**, which is done at genus level.
